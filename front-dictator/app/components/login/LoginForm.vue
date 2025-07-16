@@ -20,10 +20,11 @@ const handleLogin = async () => {
     loading.value = true
     try {
         await login(credentials)
+        alert('¡Login exitoso!')
         await navigateTo('/dashboard')
     } catch (error) {
         console.error('Login failed:', error)
-        alert('Login failed. Please check your credentials.')
+        alert('Error al iniciar sesión. Verifica tus credenciales.')
     } finally {
         loading.value = false
     }

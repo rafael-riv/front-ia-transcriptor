@@ -22,7 +22,10 @@ export function useUserSession() {
     
     const login = async (creds: { email: string; password: string }) => {
       try {
-        const response = await $fetch<AuthResponse>('http://localhost:4000/api/auth/login', {
+        const config = useRuntimeConfig()
+        const backendUrl = config.public.backendUrl || 'http://localhost:4000'
+        
+        const response = await $fetch<AuthResponse>(`${backendUrl}/api/auth/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

@@ -40,7 +40,10 @@ const handleRegister = async () => {
   
   try {
     // Llamada al backend en localhost:4000
-    const response = await $fetch<RegisterResponse>('http://localhost:4000/api/auth/register', {
+          const config = useRuntimeConfig()
+      const backendUrl = config.public.backendUrl
+      
+      const response = await $fetch<RegisterResponse>(`${backendUrl}/api/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

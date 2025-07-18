@@ -15,6 +15,45 @@
 
     <!-- Main Content -->
     <main class="dashboard-main">
+      <!-- Real-time Transcription Preview -->
+      <section class="realtime-preview">
+        <div class="section-card">
+          <h2>🎙️ Transcripción en Tiempo Real</h2>
+          <p class="section-description">
+            Habla al micrófono y obtén la transcripción instantánea usando IA
+          </p>
+          
+          <div class="preview-features">
+            <div class="feature-item">
+              <span class="feature-icon">⚡</span>
+              <span>Transcripción instantánea</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">🌍</span>
+              <span>Múltiples idiomas</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">🎯</span>
+              <span>Alta precisión</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">💾</span>
+              <span>Guardado automático</span>
+            </div>
+          </div>
+
+          <div class="preview-actions">
+            <NuxtLink to="/realtime" class="realtime-link">
+              🚀 Abrir Transcripción en Tiempo Real
+            </NuxtLink>
+            
+            <div class="inline-preview">
+              <RealTimeTranscription />
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Upload Section -->
       <section class="upload-section">
         <div class="section-card">
@@ -145,6 +184,7 @@
 
 <script setup>
 import { useUserSession } from '~/composables/useUserSession'
+import RealTimeTranscription from '~/components/transcription/RealTimeTranscription.vue'
 
 // Middleware para proteger la ruta
 definePageMeta({
@@ -226,8 +266,12 @@ const handleUpload = async () => {
     // Obtener token de autenticación
     const token = localStorage.getItem('auth-token')
     
+    // Configuración del backend
+    const config = useRuntimeConfig()
+    const backendUrl = config.public.backendUrl
+    
     // Subir archivo
-    const response = await $fetch('http://localhost:4000/api/transcribe', {
+    const response = await $fetch(`${backendUrl}/api/transcribe`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -264,7 +308,11 @@ const loadTranscriptions = async () => {
   try {
     const token = localStorage.getItem('auth-token')
     
-    const response = await $fetch('http://localhost:4000/api/history', {
+    // Configuración del backend
+    const config = useRuntimeConfig()
+    const backendUrl = config.public.backendUrl
+    
+    const response = await $fetch(`${backendUrl}/api/history`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -714,6 +762,72 @@ const formatDate = (dateString) => {
     top: 1rem;
     right: 1rem;
     left: 1rem;
+  }
+}
+
+/* Estilos para la sección de transcripción en tiempo real */
+.realtime-preview {
+  margin-bottom: 3rem;
+}
+
+.preview-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 10px;
+  font-weight: 500;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+}
+
+.feature-icon {
+  font-size: 1.5rem;
+}
+
+.preview-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  align-items: center;
+}
+
+.realtime-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+  color: white;
+  text-decoration: none;
+  border-radius: 15px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+  transition: all 0.3s ease;
+}
+
+.realtime-link:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(255, 107, 107, 0.4);
+}
+
+.inline-preview {
+  width: 100%;
+  max-width: 600px;
+}
+
+@media (max-width: 768px) {
+  .preview-features {
+    grid-template-columns: 1fr;
   }
 }
 </style>

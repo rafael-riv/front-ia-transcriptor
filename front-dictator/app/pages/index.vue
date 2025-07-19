@@ -4,6 +4,7 @@
     <p>AI-powered voice transcription platform</p>
     
     <div class="actions">
+      <div class="text-9xln bg-red-500">Holis</div>
       <NuxtLink to="/login" class="btn">Login</NuxtLink>
       <NuxtLink to="/register" class="btn">Register</NuxtLink>
     </div>

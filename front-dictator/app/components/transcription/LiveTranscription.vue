@@ -717,6 +717,6 @@ h4 {
 }
 
 .history-list {
-  /* No specific styles needed, items are handled by .transcription-item */
-}
+  border: 1px solid red;
+} 
 </style> 

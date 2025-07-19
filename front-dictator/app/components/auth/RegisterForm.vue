@@ -131,7 +131,7 @@ const handleRegister = async () => {
       
       <p class="login-link">
         ¿Ya tienes cuenta? 
-        <NuxtLink to="/login">Inicia sesión aquí</NuxtLink>
+        <NuxtLink to="/">Inicia sesión aquí</NuxtLink>
       </p>
     </form>
   </div>
@@ -144,7 +144,6 @@ const handleRegister = async () => {
   align-items: center;
   min-height: 100vh;
   padding: 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .register-form {
@@ -229,7 +228,7 @@ const handleRegister = async () => {
 }
 
 .register-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
+    background: #764ba2;
 }
 
 .register-btn:disabled {

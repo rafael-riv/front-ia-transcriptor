@@ -1,17 +1,22 @@
 <template>
-  <div>
-    <h1>Welcome to Vocali</h1>
-    <p>AI-powered voice transcription platform</p>
-    
-    <div class="actions">
-      <div class="text-9xln bg-red-500">Holis</div>
-      <NuxtLink to="/login" class="btn">Login</NuxtLink>
-      <NuxtLink to="/register" class="btn">Register</NuxtLink>
+  <div class="landing-container flex flex-col  md:flex-row items-center justify-around px-4 min-h-screen">
+    <div class="text-center">
+      <h1 class="text-4xl">Bienvenido a scripter.ai</h1>
+      <p class="mb-6">AI-powered voice transcription platform</p>
+
+      <span class="text-sky-600 mt-8">Tu nueva app para transcripciones y analisis en tiempo real</span>
+    </div>
+    <div class="login-container">
+      <LoginForm />
     </div>
   </div>
 </template>
 
 <style scoped>
+
+.landing-container{
+    background: linear-gradient(135deg, #c7dcf7 0%, #78ade2 100%);
+}
 .actions {
   margin-top: 2rem;
   display: flex;

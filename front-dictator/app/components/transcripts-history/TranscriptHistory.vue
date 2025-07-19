@@ -1,124 +1,76 @@
 <template>
-  <div class="dashboard">
-    <Header />
 
-    <!-- Main Content -->
-    <main class="dashboard-main">
-      <!-- Real-time Transcription Preview -->
-      <section class="realtime-preview">
+      <section class="history-section">
         <div class="section-card">
-          <h2>🎙️ Transcripción en Tiempo Real</h2>
-          <p class="section-description">
-            Habla al micrófono y obtén la transcripción instantánea usando IA
-          </p>
-          
-          <div class="preview-features">
-            <div class="feature-item">
-              <span class="feature-icon">⚡</span>
-              <span>Transcripción instantánea</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-icon">🌍</span>
-              <span>Múltiples idiomas</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-icon">🎯</span>
-              <span>Alta precisión</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-icon">💾</span>
-              <span>Guardado automático</span>
-            </div>
-          </div>
-
-          <div class="preview-actions">
-            <NuxtLink to="/realtime" class="realtime-link">
-              🚀 Abrir Transcripción en Tiempo Real
-            </NuxtLink>
-            
-            <div class="inline-preview">
-              <RealTimeTranscription />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Upload Section -->
-      <section class="upload-section">
-        <div class="section-card">
-          <h2>📁 Subir Audio para Transcribir</h2>
-          <p class="section-description">
-            Sube tu archivo de audio y obtendrás la transcripción automáticamente
-          </p>
-          
-          <form @submit.prevent="handleUpload" class="upload-form">
-            <div class="file-input-container">
-              <input 
-                ref="fileInput"
-                type="file" 
-                accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg"
-                @change="handleFileSelect"
-                class="file-input"
-                id="audio-file"
-                required
-              />
-              <label for="audio-file" class="file-label">
-                <span v-if="!selectedFile" class="file-label-text">
-                  📎 Seleccionar archivo de audio
-                </span>
-                <span v-else class="file-selected">
-                  ✅ {{ selectedFile.name }}
-                </span>
-              </label>
-            </div>
-            
-            <div v-if="selectedFile" class="file-info">
-              <p><strong>Archivo:</strong> {{ selectedFile.name }}</p>
-              <p><strong>Tamaño:</strong> {{ formatFileSize(selectedFile.size) }}</p>
-              <p><strong>Tipo:</strong> {{ selectedFile.type }}</p>
-            </div>
-            
-            <button 
-              type="submit" 
-              :disabled="uploading || !selectedFile" 
-              class="upload-btn"
-            >
-              <span v-if="uploading">
-                🔄 Subiendo y transcribiendo...
-              </span>
-              <span v-else>
-                🚀 Subir y Transcribir
-              </span>
+          <div class="section-header">
+            <h2>📋 Historial de Transcripciones</h2>
+            <button @click="loadTranscriptions" class="refresh-btn" :disabled="loadingHistory">
+              {{ loadingHistory ? '🔄' : '🔄' }} Actualizar
             </button>
-          </form>
-
-          <!-- Progress Bar -->
-          <div v-if="uploading" class="progress-container">
-            <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+          </div>
+          
+          <div v-if="loadingHistory" class="loading-state">
+            <p>⏳ Cargando transcripciones...</p>
+          </div>
+          
+          <div v-else-if="transcriptions.length === 0" class="empty-state">
+            <p>📭 No hay transcripciones aún</p>
+            <p class="empty-subtitle">¡Sube tu primer archivo de audio!</p>
+          </div>
+          
+          <div v-else class="transcriptions-list">
+            <div 
+              v-for="transcription in transcriptions" 
+              :key="transcription._id"
+              class="transcription-item"
+            >
+              <div class="transcription-header">
+                <h3>{{ transcription.filename || 'Audio sin nombre' }}</h3>
+                <span class="transcription-date">
+                  {{ formatDate(transcription.createdAt) }}
+                </span>
+              </div>
+              
+              <div class="transcription-content">
+                <p v-if="transcription.text" class="transcription-text">
+                  "{{ transcription.text }}"
+                </p>
+                <p v-else class="no-transcription">
+                  ⚠️ Transcripción no disponible
+                </p>
+              </div>
+              
+              <div class="transcription-actions">
+                <button 
+                  @click="copyToClipboard(transcription.text)"
+                  class="action-btn copy-btn"
+                  :disabled="!transcription.text"
+                >
+                  📋 Copiar
+                </button>
+                <button 
+                  @click="downloadTranscription(transcription)"
+                  class="action-btn download-btn"
+                >
+                  💾 Descargar
+                </button>
+              </div>
             </div>
-            <p class="progress-text">{{ uploadProgress }}% completado</p>
           </div>
         </div>
       </section>
-    </main>
-
-    <!-- Toast Notifications -->
-    <div v-if="notification" class="notification" :class="notification.type">
-      {{ notification.message }}
-    </div>
-  </div>
 </template>
 
 <script setup>
-import Header from '~/components/header/Header.vue'
-import RealTimeTranscription from '~/components/transcription/RealTimeTranscription.vue'
+import { useUserSession } from '~/composables/useUserSession'
 
 // Middleware para proteger la ruta
 definePageMeta({
   middleware: 'authenticated'
 })
 
+// Composables
+const { loggingOut } = useUserSession()
 
 // Estado reactivo
 const fileInput = ref(null)
@@ -320,6 +272,54 @@ const formatDate = (dateString) => {
 .dashboard {
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.dashboard-header {
+  background: white;
+  padding: 1.5rem 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dashboard-header h1 {
+  color: #333;
+  margin: 0;
+  font-size: 2rem;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.welcome-text {
+  color: #666;
+  font-weight: 500;
+}
+
+.logout-btn {
+  padding: 0.5rem 1rem;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.logout-btn:hover {
+  background: #c82333;
 }
 
 .dashboard-main {

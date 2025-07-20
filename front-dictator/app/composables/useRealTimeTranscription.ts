@@ -1,4 +1,4 @@
-import { ref, reactive, computed, onUnmounted } from 'vue'
+import { ref, reactive, computed, onUnmounted, readonly } from 'vue'
 import { useAudioRecording } from './useAudioRecording'
 import { useWebSocketConnection } from './useWebSocketConnection'
 import { useTranscriptionHistory } from './useTranscriptionHistory'
@@ -22,13 +22,40 @@ export interface UseRealTimeTranscriptionOptions {
   onError?: (error: string) => void
 }
 
+interface TranscriptionBuffer {
+  finalText: string        // Texto ya confirmado como final
+  pendingText: string     // Texto parcial actual que aún puede cambiar
+  lastPartialText: string // Último texto parcial para detectar cambios
+}
+
 export function useRealTimeTranscription(options: UseRealTimeTranscriptionOptions = {}) {
   // Estado principal
-  const currentTranscript = ref('')
-  const liveTranscript = ref('')
+  const transcriptionBuffer = ref<TranscriptionBuffer>({
+    finalText: '',
+    pendingText: '',
+    lastPartialText: ''
+  })
+  
   const sessionStartTime = ref<Date | null>(null)
   const status = ref('Detenido')
   const isSessionActive = ref(false)
+
+  // Texto computado que combina final + parcial
+  const currentTranscript = computed(() => {
+    const buffer = transcriptionBuffer.value
+    const finalPart = buffer.finalText.trim()
+    const pendingPart = buffer.pendingText.trim()
+    
+    if (finalPart && pendingPart) {
+      return `${finalPart} ${pendingPart}`
+    }
+    return finalPart || pendingPart
+  })
+
+  // Texto en vivo (solo el parcial actual)
+  const liveTranscript = computed(() => {
+    return transcriptionBuffer.value.pendingText
+  })
 
   // Configurar y usar composables especializados
   const audioRecording = useAudioRecording({
@@ -50,14 +77,10 @@ export function useRealTimeTranscription(options: UseRealTimeTranscriptionOption
   const webSocket = useWebSocketConnection({
     url: options.socketUrl || options.apiBaseUrl || 'http://localhost:4000',
     onPartialTranscript: (transcript) => {
-      liveTranscript.value = transcript
+      handlePartialTranscript(transcript)
     },
     onFinalTranscript: (transcript) => {
-      if (transcript.trim()) {
-        // Acumular texto final en la transcripción actual
-        currentTranscript.value += (currentTranscript.value ? ' ' : '') + transcript.trim()
-      }
-      liveTranscript.value = transcript
+      handleFinalTranscript(transcript)
     },
     onError: (error) => {
       status.value = error
@@ -77,12 +100,72 @@ export function useRealTimeTranscription(options: UseRealTimeTranscriptionOption
     }
   })
 
-  const transcriptionHistory = useTranscriptionHistory({
-    apiBaseUrl: options.apiBaseUrl,
-    autoLoad: true,
-    onError: options.onError,
-    onSuccess: options.onSuccess
-  })
+  // Instancia de transcription history solo para operaciones de guardado
+  let transcriptionHistory: ReturnType<typeof useTranscriptionHistory> | null = null
+  
+  const getTranscriptionHistory = () => {
+    if (!transcriptionHistory) {
+      transcriptionHistory = useTranscriptionHistory({
+        apiBaseUrl: options.apiBaseUrl,
+        autoLoad: false, // No auto-cargar para evitar problemas de serialización
+        onError: options.onError,
+        onSuccess: options.onSuccess
+      })
+    }
+    return transcriptionHistory
+  }
+
+  // Lógica mejorada para manejar transcripciones
+  const handlePartialTranscript = (transcript: string) => {
+    const buffer = transcriptionBuffer.value
+    
+    // Actualizar solo el texto parcial
+    buffer.pendingText = transcript.trim()
+    
+    console.log('📝 Partial:', transcript.trim())
+  }
+
+  const handleFinalTranscript = (transcript: string) => {
+    const buffer = transcriptionBuffer.value
+    const finalText = transcript.trim()
+    
+    if (finalText) {
+      // Si hay texto parcial previo, lo reemplazamos con el final
+      // Si no hay texto parcial, simplemente agregamos el final
+      if (buffer.pendingText) {
+        // Reemplazar el texto parcial con el final
+        buffer.finalText = buffer.finalText ? `${buffer.finalText} ${finalText}` : finalText
+        buffer.pendingText = '' // Limpiar el parcial ya que se convirtió en final
+      } else {
+        // Agregar directamente al final si no hay parcial
+        buffer.finalText = buffer.finalText ? `${buffer.finalText} ${finalText}` : finalText
+      }
+      
+      console.log('✅ Final:', finalText)
+      console.log('📄 Accumulated:', buffer.finalText)
+    }
+  }
+
+  const finalizeCurrentTranscript = () => {
+    const buffer = transcriptionBuffer.value
+    
+    // Si hay texto parcial pendiente, lo promovemos a final
+    if (buffer.pendingText.trim()) {
+      const pendingText = buffer.pendingText.trim()
+      buffer.finalText = buffer.finalText ? `${buffer.finalText} ${pendingText}` : pendingText
+      buffer.pendingText = ''
+      
+      console.log('🔄 Finalized pending text:', pendingText)
+    }
+  }
+
+  const clearTranscriptionBuffer = () => {
+    transcriptionBuffer.value = {
+      finalText: '',
+      pendingText: '',
+      lastPartialText: ''
+    }
+  }
 
   // Estado computado combinado
   const transcriptionStatus = computed<TranscriptionStatus>(() => ({
@@ -121,9 +204,18 @@ export function useRealTimeTranscription(options: UseRealTimeTranscriptionOption
         }
       }
 
+      // ✨ Solo limpiar el buffer si hay texto previo y el usuario lo confirma
+      const hasText = currentTranscript.value.trim().length > 0
+      if (hasText) {
+        const shouldClear = confirm('¿Estás seguro de que quieres iniciar una nueva transcripción? Se perderá el texto actual si no lo has guardado.')
+        if (!shouldClear) {
+          status.value = 'Detenido'
+          return false
+        }
+      }
+
       // Limpiar estado anterior
-      currentTranscript.value = ''
-      liveTranscript.value = ''
+      clearTranscriptionBuffer()
       sessionStartTime.value = new Date()
       isSessionActive.value = true
 
@@ -161,6 +253,9 @@ export function useRealTimeTranscription(options: UseRealTimeTranscriptionOption
   const pauseSession = (): boolean => {
     if (!isSessionActive.value) return false
 
+    // Al pausar, finalizamos cualquier texto parcial pendiente
+    finalizeCurrentTranscript()
+
     const paused = audioRecording.pauseRecording() && webSocket.pauseRecognition()
     if (paused) {
       status.value = 'Pausado'
@@ -179,27 +274,28 @@ export function useRealTimeTranscription(options: UseRealTimeTranscriptionOption
   }
 
   const stopSession = (): void => {
+    // IMPORTANTE: Finalizar cualquier texto parcial antes de detener
+    finalizeCurrentTranscript()
+
     // Detener grabación de audio
     audioRecording.stopRecording()
     
     // Detener reconocimiento
     webSocket.stopRecognition()
 
-    // Agregar al historial si hay texto
-    if (currentTranscript.value.trim() && sessionStartTime.value) {
-      transcriptionHistory.addLocalTranscription(
-        currentTranscript.value,
-        sessionStartTime.value,
-        new Date()
-      )
-    }
+    // ✨ NO agregar automáticamente al historial
+    // El usuario debe decidir explícitamente si quiere guardar
 
-    // Limpiar estado
+    // Limpiar estado de sesión pero MANTENER el texto
     isSessionActive.value = false
     status.value = 'Detenido'
-    liveTranscript.value = ''
-    currentTranscript.value = ''
     sessionStartTime.value = null
+    
+    // ✨ NO limpiar automáticamente el buffer
+    // El texto debe persistir hasta que el usuario decida qué hacer
+    // Solo se limpiará cuando:
+    // 1. Inicie una nueva transcripción
+    // 2. Use el método clearText explícitamente
   }
 
   const handleMainAction = () => {
@@ -212,15 +308,29 @@ export function useRealTimeTranscription(options: UseRealTimeTranscriptionOption
     }
   }
 
+  // Método para limpiar el texto manualmente
+  const clearText = () => {
+    clearTranscriptionBuffer()
+  }
+
   // Métodos de guardado y descarga
   const saveCurrentTranscript = async (): Promise<boolean> => {
-    if (!currentTranscript.value.trim()) {
+    // Asegurar que el texto actual incluye todo (final + parcial)
+    const textToSave = currentTranscript.value.trim()
+    
+    if (!textToSave) {
       options.onError?.('No hay texto para guardar')
       return false
     }
 
-    const result = await transcriptionHistory.saveTranscription(
-      currentTranscript.value,
+    // Si hay texto parcial, finalizarlo antes de guardar
+    if (transcriptionBuffer.value.pendingText.trim()) {
+      finalizeCurrentTranscript()
+    }
+
+    const historyManager = getTranscriptionHistory()
+    const result = await historyManager.saveTranscription(
+      transcriptionBuffer.value.finalText.trim(),
       'Transcripción actual en progreso'
     )
 
@@ -232,13 +342,15 @@ export function useRealTimeTranscription(options: UseRealTimeTranscriptionOption
   }
 
   const downloadCurrentTranscript = (): void => {
-    if (!currentTranscript.value.trim()) {
+    const textToDownload = currentTranscript.value.trim()
+    
+    if (!textToDownload) {
       options.onError?.('No hay texto para descargar')
       return
     }
 
     try {
-      FileOperationsService.downloadTranscription(currentTranscript.value, 'transcripcion_actual')
+      FileOperationsService.downloadTranscription(textToDownload, 'transcripcion_actual')
       options.onSuccess?.('Transcripción descargada')
     } catch (error) {
       options.onError?.(error instanceof Error ? error.message : 'Error al descargar')
@@ -273,16 +385,11 @@ export function useRealTimeTranscription(options: UseRealTimeTranscriptionOption
   }
 
   return {
-    // Estado
+    // Estado reactivo
     status: readonly(status),
     transcriptionStatus: readonly(transcriptionStatus),
     buttonState: readonly(buttonState),
     statusClass: readonly(statusClass),
-    
-    // Referencias a composables especializados para casos avanzados
-    audioRecording: readonly(audioRecording),
-    webSocket: readonly(webSocket),
-    transcriptionHistory: readonly(transcriptionHistory),
     
     // Métodos principales
     handleMainAction,
@@ -290,6 +397,7 @@ export function useRealTimeTranscription(options: UseRealTimeTranscriptionOption
     pauseSession,
     resumeSession,
     stopSession,
+    clearText,
     
     // Métodos de archivo
     saveCurrentTranscript,

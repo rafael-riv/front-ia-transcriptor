@@ -24,75 +24,39 @@
     <!-- Display de Transcripción -->
     <LiveTranscriptDisplay
       :is-transcribing="transcriptionStatus.isTranscribing"
-      :live-text="transcriptionStatus.liveText"
       :current-text="transcriptionStatus.currentText"
+      :session-duration="sessionDuration()"
       :is-loading="isLoading"
       @save="saveCurrentTranscript"
       @download="downloadCurrentTranscript"
       @copy="copyCurrentToClipboard"
+      @clear="clearCurrentText"
     />
 
-    <!-- Historial de Transcripciones -->
-    <section class="history-section">
-      <div class="history-header">
-        <h3>📋 Historial de Transcripciones</h3>
-        <div class="history-controls">
-          <span v-if="transcriptionHistory.isLoading.value" class="loading-indicator">
-            🔄 Cargando...
-          </span>
-          <span v-else class="history-count">
-            {{ transcriptionHistory.count() }} transcripciones
-          </span>
+    <!-- Información sobre el historial -->
+    <section class="history-info-section">
+      <div class="info-card">
+        <div class="info-content">
+          <h3>📋 ¿Quieres revisar tus transcripciones anteriores?</h3>
+          <p>Accede al historial completo para ver, gestionar y descargar todas tus transcripciones guardadas.</p>
           
-          <button 
-            @click="refreshHistory"
-            class="refresh-btn"
-            :disabled="transcriptionHistory.isLoading.value"
-          >
-            🔄 Actualizar
-          </button>
-          
-          <button 
-            v-if="transcriptionHistory.count() > 0"
-            @click="downloadAllTranscripts"
-            class="download-all-btn"
-          >
-            📁 Descargar Todo
-          </button>
-          
-          <button 
-            v-if="transcriptionHistory.hasTemporary()"
-            @click="clearLocalHistory"
-            class="clear-btn"
-          >
-            🧹 Limpiar Local
-          </button>
+          <div class="info-actions">
+            <NuxtLink to="/history" class="history-link">
+              📋 Ver Historial Completo
+            </NuxtLink>
+          </div>
         </div>
-      </div>
-
-      <!-- Lista de Transcripciones -->
-      <div v-if="transcriptionHistory.isLoading.value" class="loading-state">
-        <p>📥 Cargando historial desde el servidor...</p>
-      </div>
-
-      <div v-else-if="transcriptionHistory.count() === 0" class="empty-history">
-        <span class="empty-icon">📝</span>
-        <h4>No hay transcripciones en el historial</h4>
-        <p>¡Crea tu primera transcripción usando el micrófono!</p>
-      </div>
-
-      <div v-else class="history-list">
-        <TranscriptionHistoryItem
-          v-for="(item, index) in transcriptionHistory.transcriptions"
-          :key="item.id"
-          :item="item"
-          :index="index"
-          :is-loading="isActionLoading"
-          @save="saveHistoryItem"
-          @copy="copyHistoryItem"
-          @download="downloadHistoryItem"
-          @delete="deleteHistoryItem"
-        />
+        
+        <div class="info-stats">
+          <div class="stat-item">
+            <span class="stat-icon">💾</span>
+            <span class="stat-label">Solo se guardan las transcripciones que elijas guardar</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-icon">🔍</span>
+            <span class="stat-label">Busca y organiza tus transcripciones fácilmente</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -104,13 +68,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRealTimeTranscription } from '~/composables/useRealTimeTranscription'
-import { FileOperationsService } from '~/utils/fileOperationsService'
 import TranscriptionControls from './TranscriptionControls.vue'
 import LiveTranscriptDisplay from './LiveTranscriptDisplay.vue'
-import TranscriptionHistoryItem from './TranscriptionHistoryItem.vue'
-import type { TranscriptionItem } from '~/composables/useTranscriptionHistory'
 
 // Middleware para proteger la ruta
 definePageMeta({
@@ -120,7 +81,6 @@ definePageMeta({
 // Estado para notificaciones
 const notification = ref<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
 const isLoading = ref(false)
-const isActionLoading = ref(false)
 
 // Configurar transcripción en tiempo real
 const transcription = useRealTimeTranscription({
@@ -136,12 +96,12 @@ const {
   transcriptionStatus,
   buttonState,
   statusClass,
-  transcriptionHistory,
   handleMainAction,
   stopSession,
   saveCurrentTranscript: saveTranscript,
   downloadCurrentTranscript: downloadTranscript,
   copyToClipboard,
+  clearText,
   sessionDuration
 } = transcription
 
@@ -171,95 +131,10 @@ const copyCurrentToClipboard = () => {
   copyToClipboard()
 }
 
-// Métodos para manejar historial
-const refreshHistory = async () => {
-  await transcriptionHistory.refresh()
+const clearCurrentText = () => {
+  clearText()
+  showNotification('Texto eliminado', 'info')
 }
-
-const downloadAllTranscripts = () => {
-  try {
-    const transcripts = transcriptionHistory.transcriptions.map((item: TranscriptionItem) => ({
-      text: item.text,
-      timestamp: item.timestamp,
-      duration: item.duration,
-      filename: item.filename
-    }))
-    
-    FileOperationsService.downloadMultipleTranscriptions(transcripts)
-    showNotification('Historial completo descargado', 'success')
-  } catch (error) {
-    showNotification(
-      error instanceof Error ? error.message : 'Error al descargar historial',
-      'error'
-    )
-  }
-}
-
-const clearLocalHistory = async () => {
-  if (confirm('¿Estás seguro de que quieres eliminar todo el historial local? (Las transcripciones guardadas en el servidor permanecerán)')) {
-    const success = await transcriptionHistory.clearLocalHistory()
-    if (success) {
-      showNotification('Historial local limpiado', 'success')
-    }
-  }
-}
-
-// Métodos para items individuales del historial
-const saveHistoryItem = async (item: TranscriptionItem) => {
-  isActionLoading.value = true
-  try {
-    const success = await transcriptionHistory.saveExistingItem(item)
-    if (success) {
-      showNotification('Transcripción guardada exitosamente', 'success')
-    }
-  } finally {
-    isActionLoading.value = false
-  }
-}
-
-const copyHistoryItem = async (text: string) => {
-  try {
-    const success = await FileOperationsService.copyToClipboard(text)
-    if (success) {
-      showNotification('Texto copiado al portapapeles', 'success')
-    }
-  } catch (error) {
-    showNotification(
-      error instanceof Error ? error.message : 'Error al copiar',
-      'error'
-    )
-  }
-}
-
-const downloadHistoryItem = (item: TranscriptionItem) => {
-  try {
-    const index = transcriptionHistory.transcriptions.indexOf(item) + 1
-    FileOperationsService.downloadTranscription(
-      item.text,
-      item.filename || `transcripcion_${index}`
-    )
-    showNotification('Transcripción descargada', 'success')
-  } catch (error) {
-    showNotification(
-      error instanceof Error ? error.message : 'Error al descargar',
-      'error'
-    )
-  }
-}
-
-const deleteHistoryItem = async (id: string) => {
-  if (confirm('¿Estás seguro de que quieres eliminar esta transcripción?')) {
-    const success = transcriptionHistory.deleteLocalItem(id)
-    if (success) {
-      showNotification('Transcripción eliminada', 'success')
-    }
-  }
-}
-
-// Cargar historial al montar
-onMounted(() => {
-  transcriptionHistory.refresh()
-})
 </script>
 
 <style scoped>
@@ -279,74 +154,45 @@ onMounted(() => {
   @apply text-gray-600 text-lg;
 }
 
-/* Sección de historial */
-.history-section {
-  @apply bg-white rounded-lg border border-gray-200 p-6 shadow-sm;
+/* Sección de información del historial */
+.history-info-section {
+  @apply bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200 p-6;
 }
 
-.history-header {
-  @apply flex justify-between items-center mb-6 pb-4 border-b border-gray-200;
+.info-card {
+  @apply space-y-6;
 }
 
-.history-header h3 {
-  @apply text-xl font-semibold text-gray-800 m-0;
+.info-content h3 {
+  @apply text-lg font-semibold text-gray-800 mb-3 m-0;
 }
 
-.history-controls {
-  @apply flex items-center gap-3 flex-wrap;
+.info-content p {
+  @apply text-gray-600 mb-4;
 }
 
-.loading-indicator,
-.history-count {
-  @apply text-sm text-gray-600 font-medium;
+.info-actions {
+  @apply flex justify-center;
 }
 
-.refresh-btn,
-.download-all-btn,
-.clear-btn {
-  @apply px-3 py-1.5 rounded-md text-sm font-medium transition-colors border-none cursor-pointer;
+.history-link {
+  @apply inline-flex items-center gap-2 px-6 py-3 bg-purple-500 text-white font-semibold rounded-lg hover:bg-purple-600 transition-colors duration-200 no-underline;
 }
 
-.refresh-btn {
-  @apply bg-blue-100 text-blue-700 hover:bg-blue-200;
+.info-stats {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-4;
 }
 
-.download-all-btn {
-  @apply bg-green-100 text-green-700 hover:bg-green-200;
+.stat-item {
+  @apply flex items-center gap-3 p-3 bg-white rounded-lg border border-purple-100;
 }
 
-.clear-btn {
-  @apply bg-red-100 text-red-700 hover:bg-red-200;
+.stat-icon {
+  @apply text-lg;
 }
 
-.refresh-btn:disabled {
-  @apply bg-gray-100 text-gray-400 cursor-not-allowed;
-}
-
-/* Estados del historial */
-.loading-state,
-.empty-history {
-  @apply text-center py-12 text-gray-600;
-}
-
-.empty-history {
-  @apply bg-gray-50 rounded-lg border-2 border-dashed border-gray-300;
-}
-
-.empty-icon {
-  @apply text-4xl mb-4 block;
-}
-
-.empty-history h4 {
-  @apply text-lg font-semibold text-gray-700 mb-2;
-}
-
-.empty-history p {
-  @apply text-gray-500 m-0;
-}
-
-.history-list {
-  @apply space-y-4;
+.stat-label {
+  @apply text-sm text-gray-700 font-medium;
 }
 
 /* Notificaciones */
@@ -392,12 +238,8 @@ onMounted(() => {
     @apply text-base;
   }
   
-  .history-header {
-    @apply flex-col items-stretch gap-4;
-  }
-  
-  .history-controls {
-    @apply justify-center;
+  .info-stats {
+    @apply grid-cols-1;
   }
   
   .notification {
@@ -406,14 +248,12 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
-  .history-controls {
-    @apply flex-col;
+  .history-link {
+    @apply w-full text-center;
   }
   
-  .refresh-btn,
-  .download-all-btn,
-  .clear-btn {
-    @apply w-full text-center;
+  .stat-item {
+    @apply flex-col text-center gap-2;
   }
 }
 </style>

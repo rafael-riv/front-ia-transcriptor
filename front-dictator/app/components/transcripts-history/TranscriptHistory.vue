@@ -29,7 +29,7 @@
             title="Mostrar/ocultar filtros"
           >
             🔍 Filtros
-          </button>
+            </button>
         </div>
       </div>
 
@@ -239,8 +239,8 @@
         <div class="bulk-info">
           <span class="bulk-icon">🛠️</span>
           <span class="bulk-text">Acciones en lote:</span>
-        </div>
-        
+              </div>
+              
         <div class="bulk-buttons">
           <div class="export-group">
             <button 
@@ -266,9 +266,9 @@
             >
               📊 Exportar CSV
             </button>
-          </div>
-          
-          <button 
+              </div>
+              
+                <button 
             v-if="transcriptionHistory.hasTemporary()"
             @click="saveAllTemporary"
             class="action-btn save-all-btn"
@@ -278,24 +278,24 @@
             <span v-if="isSavingAll">⏳</span>
             <span v-else>💾</span>
             Guardar Temporales
-          </button>
+                </button>
           
-          <button 
+                <button 
             @click="clearLocalHistory"
             class="action-btn danger-btn"
             title="Limpiar historial local (mantiene las guardadas)"
-          >
+                >
             🗑️ Limpiar Local
-          </button>
-        </div>
-      </div>
-    </div>
+                </button>
+              </div>
+            </div>
+          </div>
 
     <!-- Notificación -->
     <div v-if="notification" class="notification" :class="notification.type">
       {{ notification.message }}
     </div>
-  </div>
+        </div>
 </template>
 
 <script setup lang="ts">

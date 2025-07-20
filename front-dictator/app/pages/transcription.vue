@@ -1,652 +1,294 @@
 <template>
-	<div class="dashboard">
-		<Header />
+  <div class="transcription-page">
+    <Header />
 
-		<!-- Main Content -->
-		<main class="dashboard-main">
+    <!-- Main Content -->
+    <main class="page-main">
+      <div class="page-container">
+        <!-- Sección de Upload o Vista Previa -->
+        <section class="main-section">
+          <!-- Formulario de Upload -->
+          <AudioUploadForm
+            v-if="!hasTranscription"
+            :is-uploading="uploadProgress.isUploading"
+            :upload-progress="uploadProgress.progress"
+            :upload-stage="uploadProgress.stage"
+            @upload="handleFileUpload"
+            @error="showNotification"
+            @clear="clearCurrentTranscription"
+          />
 
-			<!-- Upload Section -->
-			<section class="upload-section">
-				<div class="section-card">
-					<h2>📁 Subir Audio para Transcribir</h2>
-					<p class="section-description">
-						Sube tu archivo de audio y obtendrás la transcripción automáticamente
-					</p>
+          <!-- Vista Previa de Transcripción -->
+          <TranscriptionPreview
+            v-if="hasTranscription && currentTranscription"
+            :transcription="currentTranscription"
+            :is-loading="isLoading"
+            :can-save="canSave"
+            @save="handleSaveTranscription"
+            @download="handleDownloadTxt"
+            @download-json="handleDownloadJson"
+            @copy="handleCopyText"
+            @share="handleShareTranscription"
+            @delete="handleDeleteTranscription"
+            @new-transcription="clearCurrentTranscription"
+            @text-changed="handleTextChanged"
+          />
+        </section>
 
-					<form @submit.prevent="handleUpload" class="upload-form">
-						<div class="file-input-container">
-							<input ref="fileInput" type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg" @change="handleFileSelect"
-								class="file-input" id="audio-file" required />
-							<label for="audio-file" class="file-label">
-								<span v-if="!selectedFile" class="file-label-text">
-									📎 Seleccionar archivo de audio
-								</span>
-								<span v-else class="file-selected">
-									✅ {{ selectedFile.name }}
-								</span>
-							</label>
-						</div>
+        <!-- Sección de Transcripciones Recientes -->
+        <section v-if="!hasTranscription" class="recent-section">
+          <RecentTranscriptions
+            @refresh="showNotification('Lista actualizada', 'success')"
+          />
+        </section>
+      </div>
+    </main>
 
-						<div v-if="selectedFile" class="file-info">
-							<p><strong>Archivo:</strong> {{ selectedFile.name }}</p>
-							<p><strong>Tamaño:</strong> {{ formatFileSize(selectedFile.size) }}</p>
-							<p><strong>Tipo:</strong> {{ selectedFile.type }}</p>
-						</div>
+    <!-- Modal de Éxito -->
+    <SuccessModal
+      v-if="showSuccessModal"
+      :title="successModalData.title"
+      :message="successModalData.message"
+      :actions="successModalData.actions"
+      @close="closeSuccessModal"
+      @action="handleSuccessAction"
+    />
 
-						<button type="submit" :disabled="uploading || !selectedFile" class="upload-btn">
-							<span v-if="uploading">
-								🔄 Subiendo y transcribiendo...
-							</span>
-							<span v-else>
-								🚀 Subir y Transcribir
-							</span>
-						</button>
-					</form>
-
-					<!-- Progress Bar -->
-					<div v-if="uploading" class="progress-container">
-						<div class="progress-bar">
-							<div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
-						</div>
-						<p class="progress-text">{{ uploadProgress }}% completado</p>
-					</div>
-				</div>
-			</section>
-		</main>
-
-		<!-- Toast Notifications -->
-		<div v-if="notification" class="notification" :class="notification.type">
-			{{ notification.message }}
-		</div>
-	</div>
+    <!-- Notificaciones Toast -->
+    <NotificationToast
+      v-if="notification"
+      :message="notification.message"
+      :type="notification.type"
+      @close="closeNotification"
+    />
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { ref, computed } from 'vue'
 import Header from '~/components/header/Header.vue'
-
+import AudioUploadForm from '../components/transcription/AudioUploadForm.vue'
+import TranscriptionPreview from '~/components/transcription/TranscriptionPreview.vue'
+import RecentTranscriptions from '../components/transcription/RecentTranscriptions.vue'
+import SuccessModal from '../components/ui/SuccessModal.vue'
+import NotificationToast from '../components/ui/NotificationToast.vue'
+import { useFileTranscription } from '~/composables/useFileTranscription'
+import type { TranscriptionData } from '~/components/transcription/TranscriptionPreview.vue'
 
 // Middleware para proteger la ruta
 definePageMeta({
-	middleware: 'authenticated'
+  middleware: 'authenticated'
 })
 
-
-// Estado reactivo
-const fileInput = ref(null)
-const selectedFile = ref(null)
-const uploading = ref(false)
-const uploadProgress = ref(0)
-const loadingHistory = ref(false)
-const transcriptions = ref([])
-const notification = ref(null)
-
-// Cargar transcripciones al montar el componente
-onMounted(() => {
-	loadTranscriptions()
+// Estado de notificaciones
+const notification = ref<{ message: string; type: string } | null>(null)
+const showSuccessModal = ref(false)
+const successModalData = ref({
+  title: '',
+  message: '',
+  actions: [] as Array<{ label: string; action: string; primary?: boolean }>
 })
 
-// Métodos
-const handleFileSelect = (event) => {
-	const file = event.target.files[0]
+// Inicializar composable de transcripción
+const transcriptionManager = useFileTranscription({
+  onSuccess: (message: string) => showNotification(message, 'success'),
+  onError: (error: string) => showNotification(error, 'error')
+})
 
-	if (!file) {
-		selectedFile.value = null
-		return
-	}
+// Destructurar métodos y estado del composable
+const {
+  currentTranscription,
+  uploadProgress,
+  isLoading,
+  uploadAndTranscribe,
+  saveToHistory,
+  downloadTranscription,
+  copyToClipboard,
+  shareTranscription,
+  clearTranscription,
+  updateTranscription,
+  hasTranscription: hasTranscriptionFn,
+  canSave
+} = transcriptionManager
 
-	// Validar tipo de archivo
-	const validTypes = ['audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/m4a']
-	const isValidType = validTypes.some(type => file.type.includes(type.split('/')[1])) ||
-		file.name.match(/\.(mp3|wav|m4a|aac|ogg)$/i)
+// Computadas adicionales
+const hasTranscription = computed(() => hasTranscriptionFn())
 
-	if (!isValidType) {
-		showNotification('Por favor selecciona un archivo de audio válido (.mp3, .wav, .m4a, .aac, .ogg)', 'error')
-		event.target.value = ''
-		selectedFile.value = null
-		return
-	}
+const pageTitle = computed(() => {
+  return hasTranscription.value ? 'Vista Previa de Transcripción' : 'Transcribir Archivo de Audio'
+})
 
-	// Validar tamaño (máximo 50MB)
-	const maxSize = 50 * 1024 * 1024 // 50MB
-	if (file.size > maxSize) {
-		showNotification('El archivo es demasiado grande. Máximo 50MB permitido.', 'error')
-		event.target.value = ''
-		selectedFile.value = null
-		return
-	}
-
-	selectedFile.value = file
-	showNotification('Archivo seleccionado correctamente', 'success')
+// Manejadores de eventos principales
+const handleFileUpload = async (file: File) => {
+  const success = await uploadAndTranscribe(file)
+  if (success) {
+    // La notificación de éxito ya se maneja en el composable
+  }
 }
 
-const handleUpload = async () => {
-	if (!selectedFile.value) {
-		showNotification('Selecciona un archivo primero', 'error')
-		return
-	}
-
-	uploading.value = true
-	uploadProgress.value = 0
-
-	try {
-		// Crear FormData
-		const formData = new FormData()
-		formData.append('audio', selectedFile.value)
-
-		// Simular progreso
-		const progressInterval = setInterval(() => {
-			if (uploadProgress.value < 90) {
-				uploadProgress.value += Math.random() * 10
-			}
-		}, 200)
-
-		// Obtener token de autenticación
-		const token = localStorage.getItem('auth-token')
-
-		// Configuración del backend
-		const config = useRuntimeConfig()
-		const backendUrl = config.public.backendUrl
-
-		// Subir archivo
-		const response = await $fetch(`${backendUrl}/api/transcribe`, {
-			method: 'POST',
-			headers: {
-				'Authorization': `Bearer ${token}`
-			},
-			body: formData
-		})
-
-		// Completar progreso
-		clearInterval(progressInterval)
-		uploadProgress.value = 100
-
-		showNotification('¡Archivo subido y transcrito exitosamente!', 'success')
-
-		// Limpiar formulario
-		selectedFile.value = null
-		fileInput.value.value = ''
-		uploadProgress.value = 0
-
-		// Recargar transcripciones
-		await loadTranscriptions()
-
-	} catch (error) {
-		console.error('Upload failed:', error)
-		showNotification('Error al subir el archivo. Inténtalo de nuevo.', 'error')
-	} finally {
-		uploading.value = false
-		uploadProgress.value = 0
-	}
+const handleSaveTranscription = async (transcription: TranscriptionData) => {
+  const success = await saveToHistory(transcription)
+  if (success) {
+    showSuccessModal.value = true
+    successModalData.value = {
+      title: '🎉 ¡Transcripción Guardada!',
+      message: 'Tu transcripción ha sido guardada exitosamente en el historial permanente.',
+      actions: [
+        { label: '📚 Ver en Historial', action: 'view-history', primary: true },
+        { label: '✅ Continuar', action: 'continue' }
+      ]
+    }
+  }
 }
 
-const loadTranscriptions = async () => {
-	loadingHistory.value = true
-
-	try {
-		const token = localStorage.getItem('auth-token')
-
-		// Configuración del backend
-		const config = useRuntimeConfig()
-		const backendUrl = config.public.backendUrl
-
-		const response = await $fetch(`${backendUrl}/api/history`, {
-			method: 'GET',
-			headers: {
-				'Authorization': `Bearer ${token}`,
-				'Content-Type': 'application/json'
-			}
-		})
-
-		transcriptions.value = Array.isArray(response) ? response : []
-
-	} catch (error) {
-		console.error('Failed to load transcriptions:', error)
-		showNotification('Error al cargar las transcripciones', 'error')
-		transcriptions.value = []
-	} finally {
-		loadingHistory.value = false
-	}
+const handleDownloadTxt = (transcription: TranscriptionData) => {
+  downloadTranscription(transcription, 'txt')
 }
 
-
-const copyToClipboard = async (text) => {
-	if (!text) return
-
-	try {
-		await navigator.clipboard.writeText(text)
-		showNotification('Texto copiado al portapapeles', 'success')
-	} catch (error) {
-		console.error('Copy failed:', error)
-		showNotification('Error al copiar el texto', 'error')
-	}
+const handleDownloadJson = (transcription: TranscriptionData) => {
+  downloadTranscription(transcription, 'json')
 }
 
-const downloadTranscription = (transcription) => {
-	if (!transcription.text) {
-		showNotification('No hay texto para descargar', 'error')
-		return
-	}
-
-	const blob = new Blob([transcription.text], { type: 'text/plain' })
-	const url = URL.createObjectURL(blob)
-	const a = document.createElement('a')
-	a.href = url
-	a.download = `transcripcion_${transcription.filename || 'audio'}.txt`
-	document.body.appendChild(a)
-	a.click()
-	document.body.removeChild(a)
-	URL.revokeObjectURL(url)
-
-	showNotification('Transcripción descargada', 'success')
+const handleCopyText = async (text: string) => {
+  await copyToClipboard(text)
 }
 
-const showNotification = (message, type = 'info') => {
-	notification.value = { message, type }
-	setTimeout(() => {
-		notification.value = null
-	}, 4000)
+const handleShareTranscription = async (transcription: TranscriptionData) => {
+  await shareTranscription(transcription)
 }
 
-const formatFileSize = (bytes) => {
-	if (bytes === 0) return '0 B'
-	const k = 1024
-	const sizes = ['B', 'KB', 'MB', 'GB']
-	const i = Math.floor(Math.log(bytes) / Math.log(k))
-	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+const handleDeleteTranscription = () => {
+  clearCurrentTranscription()
+  showNotification('Transcripción eliminada', 'info')
 }
 
-const formatDate = (dateString) => {
-	const date = new Date(dateString)
-	return date.toLocaleDateString('es-ES', {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		hour: '2-digit',
-		minute: '2-digit'
-	})
+const handleTextChanged = (newText: string) => {
+  updateTranscription({ text: newText })
 }
+
+const clearCurrentTranscription = () => {
+  clearTranscription()
+}
+
+// Manejadores de modales y notificaciones
+const showNotification = (message: string, type: string = 'info') => {
+  notification.value = { message, type }
+  setTimeout(() => {
+    notification.value = null
+  }, 4000)
+}
+
+const closeNotification = () => {
+  notification.value = null
+}
+
+const closeSuccessModal = () => {
+  showSuccessModal.value = false
+}
+
+const handleSuccessAction = (action: string) => {
+  switch (action) {
+    case 'view-history':
+      navigateTo('/history')
+      break
+    case 'continue':
+      closeSuccessModal()
+      break
+  }
+}
+
+// SEO y meta tags
+useHead({
+  title: pageTitle,
+  meta: [
+    {
+      name: 'description',
+      content: 'Transcribe archivos de audio a texto usando inteligencia artificial. Sube tu archivo y obtén una transcripción precisa al instante.'
+    }
+  ]
+})
 </script>
 
 <style scoped>
-.dashboard {
-	min-height: 100vh;
-	background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+.transcription-page {
+  @apply min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100;
 }
 
-.dashboard-main {
-	max-width: 1200px;
-	margin: 0 auto;
-	padding: 0 1rem;
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 2rem;
+.page-main {
+  @apply pt-6 pb-12;
 }
 
-.section-card {
-	background: white;
-	padding: 2rem;
-	border-radius: 12px;
-	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-	height: fit-content;
+.page-container {
+  @apply max-w-6xl mx-auto px-4 space-y-8;
 }
 
-.section-card h2 {
-	margin-top: 0;
-	color: #333;
-	font-size: 1.5rem;
+.main-section {
+  @apply relative;
 }
 
-.section-description {
-	color: #666;
-	margin-bottom: 2rem;
+.recent-section {
+  @apply mt-8;
 }
 
-.upload-form {
-	display: flex;
-	flex-direction: column;
-	gap: 1.5rem;
-}
-
-.file-input-container {
-	position: relative;
-}
-
-.file-input {
-	position: absolute;
-	opacity: 0;
-	width: 0;
-	height: 0;
-}
-
-.file-label {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 2rem;
-	border: 2px dashed #ddd;
-	border-radius: 8px;
-	cursor: pointer;
-	transition: all 0.3s ease;
-	background: #fafafa;
-}
-
-.file-label:hover {
-	border-color: #007bff;
-	background: #f8f9ff;
-}
-
-.file-label-text {
-	color: #666;
-	font-size: 1.1rem;
-}
-
-.file-selected {
-	color: #28a745;
-	font-weight: 600;
-	font-size: 1.1rem;
-}
-
-.file-info {
-	background: #f8f9fa;
-	padding: 1rem;
-	border-radius: 6px;
-	border-left: 4px solid #007bff;
-}
-
-.file-info p {
-	margin: 0.25rem 0;
-	color: #555;
-}
-
-.upload-btn {
-	padding: 1rem 2rem;
-	background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-	color: white;
-	border: none;
-	border-radius: 8px;
-	font-size: 1.1rem;
-	font-weight: 600;
-	cursor: pointer;
-	transition: transform 0.2s;
-}
-
-.upload-btn:hover:not(:disabled) {
-	transform: translateY(-2px);
-}
-
-.upload-btn:disabled {
-	background: #ccc;
-	cursor: not-allowed;
-	transform: none;
-}
-
-.progress-container {
-	margin-top: 1rem;
-}
-
-.progress-bar {
-	width: 100%;
-	height: 8px;
-	background: #e9ecef;
-	border-radius: 4px;
-	overflow: hidden;
-}
-
-.progress-fill {
-	height: 100%;
-	background: linear-gradient(90deg, #28a745, #34ce57);
-	transition: width 0.3s ease;
-}
-
-.progress-text {
-	text-align: center;
-	margin-top: 0.5rem;
-	color: #666;
-	font-weight: 500;
-}
-
-.section-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 1.5rem;
-}
-
-.refresh-btn {
-	padding: 0.5rem 1rem;
-	background: #6c757d;
-	color: white;
-	border: none;
-	border-radius: 6px;
-	cursor: pointer;
-	font-size: 0.9rem;
-}
-
-.refresh-btn:hover:not(:disabled) {
-	background: #5a6268;
-}
-
-.loading-state,
-.empty-state {
-	text-align: center;
-	padding: 3rem 1rem;
-	color: #666;
-}
-
-.empty-subtitle {
-	font-size: 0.9rem;
-	margin-top: 0.5rem;
-}
-
-.transcriptions-list {
-	display: flex;
-	flex-direction: column;
-	gap: 1rem;
-}
-
-.transcription-item {
-	border: 1px solid #e9ecef;
-	border-radius: 8px;
-	padding: 1.5rem;
-	background: #fafafa;
-}
-
-.transcription-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 1rem;
-}
-
-.transcription-header h3 {
-	margin: 0;
-	color: #333;
-	font-size: 1.1rem;
-}
-
-.transcription-date {
-	color: #888;
-	font-size: 0.9rem;
-}
-
-.transcription-text {
-	background: white;
-	padding: 1rem;
-	border-radius: 6px;
-	margin: 1rem 0;
-	font-style: italic;
-	color: #444;
-	border-left: 4px solid #007bff;
-}
-
-.no-transcription {
-	color: #dc3545;
-	font-style: italic;
-	margin: 1rem 0;
-}
-
-.transcription-actions {
-	display: flex;
-	gap: 0.5rem;
-	margin-top: 1rem;
-}
-
-.action-btn {
-	padding: 0.5rem 1rem;
-	border: none;
-	border-radius: 4px;
-	cursor: pointer;
-	font-size: 0.9rem;
-	font-weight: 500;
-}
-
-.copy-btn {
-	background: #17a2b8;
-	color: white;
-}
-
-.copy-btn:hover:not(:disabled) {
-	background: #138496;
-}
-
-.copy-btn:disabled {
-	background: #ccc;
-	cursor: not-allowed;
-}
-
-.download-btn {
-	background: #28a745;
-	color: white;
-}
-
-.download-btn:hover {
-	background: #218838;
-}
-
-.notification {
-	position: fixed;
-	top: 2rem;
-	right: 2rem;
-	padding: 1rem 1.5rem;
-	border-radius: 6px;
-	color: white;
-	font-weight: 500;
-	z-index: 1000;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.notification.success {
-	background: #28a745;
-}
-
-.notification.error {
-	background: #dc3545;
-}
-
-.notification.info {
-	background: #17a2b8;
-}
-
+/* Responsive Design */
 @media (max-width: 768px) {
-	.dashboard-main {
-		grid-template-columns: 1fr;
-		padding: 0 0.5rem;
-	}
-
-	.header-content {
-		flex-direction: column;
-		gap: 1rem;
-		text-align: center;
-	}
-
-	.user-actions {
-		flex-direction: column;
-	}
-
-	.section-card {
-		padding: 1.5rem;
-	}
-
-	.transcription-header {
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 0.5rem;
-	}
-
-	.transcription-actions {
-		flex-direction: column;
-	}
-
-	.notification {
-		top: 1rem;
-		right: 1rem;
-		left: 1rem;
-	}
+  .page-container {
+    @apply px-3 space-y-6;
+  }
+  
+  .page-main {
+    @apply pt-4 pb-8;
+  }
 }
 
-/* Estilos para la sección de transcripción en tiempo real */
-.realtime-preview {
-	margin-bottom: 3rem;
+/* Animaciones suaves */
+.main-section {
+  animation: fadeIn 0.5s ease-out;
 }
 
-.preview-features {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-	gap: 1rem;
-	margin: 1.5rem 0;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.feature-item {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	padding: 1rem;
-	background: linear-gradient(135deg, #667eea, #764ba2);
-	color: white;
-	border-radius: 10px;
-	font-weight: 500;
-	box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+/* Estados de carga */
+.loading-overlay {
+  @apply absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-xl;
 }
 
-.feature-icon {
-	font-size: 1.5rem;
+.loading-spinner {
+  @apply animate-spin text-4xl;
 }
 
-.preview-actions {
-	display: flex;
-	flex-direction: column;
-	gap: 2rem;
-	align-items: center;
+/* Transiciones entre estados */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
 }
 
-.realtime-link {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.5rem;
-	padding: 1rem 2rem;
-	background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
-	color: white;
-	text-decoration: none;
-	border-radius: 15px;
-	font-size: 1.1rem;
-	font-weight: 600;
-	box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
-	transition: all 0.3s ease;
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
-.realtime-link:hover {
-	transform: translateY(-3px);
-	box-shadow: 0 12px 35px rgba(255, 107, 107, 0.4);
-}
-
-.inline-preview {
-	width: 100%;
-	max-width: 600px;
-}
-
-@media (max-width: 768px) {
-	.preview-features {
-		grid-template-columns: 1fr;
-	}
+/* Layout Grid */
+@media (min-width: 1024px) {
+  .page-container {
+    @apply grid grid-cols-1 gap-8;
+  }
+  
+  .main-section {
+    @apply col-span-1;
+  }
+  
+  .recent-section {
+    @apply col-span-1 mt-0;
+  }
 }
 </style>

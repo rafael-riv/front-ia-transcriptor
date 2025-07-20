@@ -1,259 +1,307 @@
-import { io, Socket } from 'socket.io-client'
-import { useUserSession } from './useUserSession'
+import { ref, reactive, computed, onUnmounted } from 'vue'
+import { useAudioRecording } from './useAudioRecording'
+import { useWebSocketConnection } from './useWebSocketConnection'
+import { useTranscriptionHistory } from './useTranscriptionHistory'
+import { FileOperationsService } from '~/utils/fileOperationsService'
+import { transcriptionApi } from '~/utils/transcriptionApiService'
 
-interface TranscriptionConfig {
-  language?: string
-  enable_partials?: boolean
-  remove_disfluencies?: boolean
-}
-
-interface TranscriptionState {
-  isConnected: boolean
+export interface TranscriptionStatus {
   isTranscribing: boolean
-  partialText: string
-  finalText: string
-  isRecording: boolean
+  isPaused: boolean
+  isConnected: boolean
+  currentText: string
+  liveText: string
   error: string | null
 }
 
-export function useRealTimeTranscription() {
-  const { token } = useUserSession()
-  
-  // Estado reactivo
-  const state = reactive<TranscriptionState>({
-    isConnected: false,
-    isTranscribing: false,
-    partialText: '',
-    finalText: '',
-    isRecording: false,
-    error: null
+export interface UseRealTimeTranscriptionOptions {
+  apiBaseUrl?: string
+  socketUrl?: string
+  autoConnect?: boolean
+  onSuccess?: (message: string) => void
+  onError?: (error: string) => void
+}
+
+export function useRealTimeTranscription(options: UseRealTimeTranscriptionOptions = {}) {
+  // Estado principal
+  const currentTranscript = ref('')
+  const liveTranscript = ref('')
+  const sessionStartTime = ref<Date | null>(null)
+  const status = ref('Detenido')
+  const isSessionActive = ref(false)
+
+  // Configurar y usar composables especializados
+  const audioRecording = useAudioRecording({
+    onDataAvailable: (audioData) => {
+      if (webSocket.isConnected.value && !audioRecording.isPaused.value) {
+        webSocket.sendAudio(audioData)
+      }
+    },
+    onError: (error) => {
+      status.value = `Error de audio: ${error.message}`
+      options.onError?.(error.message)
+      stopSession()
+    },
+    onStateChange: (state) => {
+      // El estado del audio se sincroniza automáticamente
+    }
   })
 
-  // Referencias para grabación de audio
-  let socket: Socket | null = null
-  let mediaRecorder: MediaRecorder | null = null
-  let audioStream: MediaStream | null = null
-
-  // Conectar al WebSocket
-  const connect = () => {
-    if (socket?.connected) return
-
-    const config = useRuntimeConfig()
-    const backendUrl = config.public.socketioUrl || 'http://localhost:4000'
-    
-    socket = io(`${backendUrl}/transcription`, {
-      transports: ['websocket'],
-      forceNew: true
-    })
-
-    // Eventos del socket
-    socket.on('connect', () => {
-      state.isConnected = true
-      state.error = null
-      console.log('🔗 Conectado al servicio de transcripción')
-    })
-
-    socket.on('disconnect', () => {
-      state.isConnected = false
-      state.isTranscribing = false
-      console.log('🔌 Desconectado del servicio de transcripción')
-    })
-
-    socket.on('ready-for-audio', () => {
-      console.log('🎤 Listo para recibir audio')
+  const webSocket = useWebSocketConnection({
+    url: options.socketUrl || options.apiBaseUrl || 'http://localhost:4000',
+    onPartialTranscript: (transcript) => {
+      liveTranscript.value = transcript
+    },
+    onFinalTranscript: (transcript) => {
+      if (transcript.trim()) {
+        // Acumular texto final en la transcripción actual
+        currentTranscript.value += (currentTranscript.value ? ' ' : '') + transcript.trim()
+      }
+      liveTranscript.value = transcript
+    },
+    onError: (error) => {
+      status.value = error
+      options.onError?.(error)
+      stopSession()
+    },
+    onConnected: () => {
+      status.value = 'Conectado'
+    },
+    onDisconnected: () => {
+      status.value = 'Desconectado'
+      stopSession()
+    },
+    onRecognitionStarted: () => {
+      status.value = '¡Habla ahora!'
       startAudioRecording()
-    })
+    }
+  })
 
-    socket.on('partial-transcript', (data: { text: string }) => {
-      state.partialText = data.text
-    })
+  const transcriptionHistory = useTranscriptionHistory({
+    apiBaseUrl: options.apiBaseUrl,
+    autoLoad: true,
+    onError: options.onError,
+    onSuccess: options.onSuccess
+  })
 
-    socket.on('final-transcript', (data: { text: string }) => {
-      state.finalText += data.text + ' '
-      state.partialText = '' // Limpiar texto parcial
-    })
+  // Estado computado combinado
+  const transcriptionStatus = computed<TranscriptionStatus>(() => ({
+    isTranscribing: isSessionActive.value && audioRecording.isRecording.value,
+    isPaused: audioRecording.isPaused.value,
+    isConnected: webSocket.isConnected.value,
+    currentText: currentTranscript.value,
+    liveText: liveTranscript.value,
+    error: audioRecording.error.value || webSocket.connectionError.value
+  }))
 
-    socket.on('transcription-ended', () => {
-      state.isTranscribing = false
-      stopAudioRecording()
-      console.log('✅ Transcripción finalizada')
-    })
+  const buttonState = computed(() => {
+    if (!isSessionActive.value) return { label: 'Comenzar Grabación', class: 'bg-green-500 hover:bg-green-600' }
+    if (audioRecording.isPaused.value) return { label: 'Reanudar Grabación', class: 'bg-blue-500 hover:bg-blue-600' }
+    return { label: 'Pausar Grabación', class: 'bg-neutral-200 hover:bg-neutral-300 border border-red-600' }
+  })
 
-    socket.on('retry-attempt', (data: { attempt: number; maxRetries: number }) => {
-      console.log(`🔄 Reintentando transcripción (${data.attempt}/${data.maxRetries})`)
-    })
+  const statusClass = computed(() => {
+    if (status.value.includes('Error')) return 'status-error'
+    if (transcriptionStatus.value.isTranscribing && !transcriptionStatus.value.isPaused) return 'status-recording'
+    if (transcriptionStatus.value.isPaused) return 'status-paused'
+    return 'status-stopped'
+  })
 
-    socket.on('transcript-saved', (data: any) => {
-      console.log('💾 Transcripción guardada:', data)
-    })
-
-    socket.on('error', (data: { message: string; code?: string; retryIn?: number }) => {
-      state.error = data.message
-      state.isTranscribing = false
-      stopAudioRecording()
+  // Métodos principales
+  const startSession = async (): Promise<boolean> => {
+    try {
+      status.value = 'Iniciando...'
       
-      // Log específico según el tipo de error
-      if (data.code === 'QUOTA_EXCEEDED') {
-        console.error('❌ Límite de cuota excedido:', data.message)
-      } else if (data.code === 'RATE_LIMIT' && data.retryIn) {
-        console.warn(`⏳ Rate limit alcanzado, reintentando en ${data.retryIn} segundos`)
-      } else {
-        console.error('❌ Error:', data.message)
-      }
-    })
-  }
-
-  // Iniciar transcripción
-  const startTranscription = async (config: TranscriptionConfig = {}) => {
-    try {
-      if (!socket?.connected) {
-        throw new Error('No hay conexión con el servidor')
-      }
-
-      state.error = null
-      state.finalText = ''
-      state.partialText = ''
-      state.isTranscribing = true
-
-      // Solicitar permisos de micrófono
-      audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true
-        }
-      })
-
-      // Enviar configuración al servidor
-      socket.emit('start-transcription', {
-        language: config.language || 'es',
-        enable_partials: config.enable_partials !== false,
-        remove_disfluencies: config.remove_disfluencies !== false
-      })
-
-    } catch (error) {
-      state.error = error instanceof Error ? error.message : 'Error desconocido'
-      state.isTranscribing = false
-      console.error('Error iniciando transcripción:', error)
-      throw error
-    }
-  }
-
-  // Configurar grabación de audio
-  const startAudioRecording = () => {
-    if (!audioStream) return
-
-    try {
-      mediaRecorder = new MediaRecorder(audioStream, {
-        mimeType: 'audio/webm;codecs=opus'
-      })
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0 && socket?.connected) {
-          // Convertir blob a array buffer y enviar
-          event.data.arrayBuffer().then(buffer => {
-            if (socket?.connected) {
-              socket.emit('audio-data', buffer)
-            }
-          })
+      // Conectar WebSocket si no está conectado
+      if (!webSocket.isConnected.value) {
+        const connected = await webSocket.connect()
+        if (!connected) {
+          status.value = 'Error de conexión'
+          return false
         }
       }
 
-      mediaRecorder.onstart = () => {
-        state.isRecording = true
-        console.log('🎙️ Grabación iniciada')
+      // Limpiar estado anterior
+      currentTranscript.value = ''
+      liveTranscript.value = ''
+      sessionStartTime.value = new Date()
+      isSessionActive.value = true
+
+      // Iniciar reconocimiento (esto activará el callback onRecognitionStarted)
+      const started = webSocket.startRecognition()
+      if (!started) {
+        status.value = 'Error al iniciar reconocimiento'
+        isSessionActive.value = false
+        return false
       }
 
-      mediaRecorder.onstop = () => {
-        state.isRecording = false
-        console.log('⏹️ Grabación detenida')
-      }
-
-      // Iniciar grabación con intervalos pequeños para tiempo real
-      mediaRecorder.start(100) // Enviar datos cada 100ms
-
+      return true
     } catch (error) {
-      console.error('Error configurando grabación:', error)
-      state.error = 'Error configurando grabación de audio'
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+      status.value = `Error: ${errorMsg}`
+      options.onError?.(errorMsg)
+      isSessionActive.value = false
+      return false
     }
   }
 
-  // Detener grabación de audio
-  const stopAudioRecording = () => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop()
+  const startAudioRecording = async (): Promise<boolean> => {
+    if (!isSessionActive.value) return false
+
+    const started = await audioRecording.startRecording()
+    if (!started) {
+      status.value = 'Error al acceder al micrófono'
+      stopSession()
+      return false
     }
+
+    return true
+  }
+
+  const pauseSession = (): boolean => {
+    if (!isSessionActive.value) return false
+
+    const paused = audioRecording.pauseRecording() && webSocket.pauseRecognition()
+    if (paused) {
+      status.value = 'Pausado'
+    }
+    return paused
+  }
+
+  const resumeSession = (): boolean => {
+    if (!isSessionActive.value) return false
+
+    const resumed = audioRecording.resumeRecording() && webSocket.resumeRecognition()
+    if (resumed) {
+      status.value = '¡Habla ahora!'
+    }
+    return resumed
+  }
+
+  const stopSession = (): void => {
+    // Detener grabación de audio
+    audioRecording.stopRecording()
     
-    if (audioStream) {
-      audioStream.getTracks().forEach(track => track.stop())
-      audioStream = null
+    // Detener reconocimiento
+    webSocket.stopRecognition()
+
+    // Agregar al historial si hay texto
+    if (currentTranscript.value.trim() && sessionStartTime.value) {
+      transcriptionHistory.addLocalTranscription(
+        currentTranscript.value,
+        sessionStartTime.value,
+        new Date()
+      )
+    }
+
+    // Limpiar estado
+    isSessionActive.value = false
+    status.value = 'Detenido'
+    liveTranscript.value = ''
+    currentTranscript.value = ''
+    sessionStartTime.value = null
+  }
+
+  const handleMainAction = () => {
+    if (!isSessionActive.value) {
+      startSession()
+    } else if (!audioRecording.isPaused.value) {
+      pauseSession()
+    } else {
+      resumeSession()
     }
   }
 
-  // Detener transcripción
-  const stopTranscription = () => {
-    if (socket?.connected && state.isTranscribing) {
-      socket.emit('stop-transcription')
+  // Métodos de guardado y descarga
+  const saveCurrentTranscript = async (): Promise<boolean> => {
+    if (!currentTranscript.value.trim()) {
+      options.onError?.('No hay texto para guardar')
+      return false
     }
-    
-    stopAudioRecording()
-    state.isTranscribing = false
+
+    const result = await transcriptionHistory.saveTranscription(
+      currentTranscript.value,
+      'Transcripción actual en progreso'
+    )
+
+    if (result) {
+      options.onSuccess?.('Transcripción guardada exitosamente')
+    }
+
+    return result
   }
 
-  // Desconectar
-  const disconnect = () => {
-    stopTranscription()
-    
-    if (socket) {
-      socket.disconnect()
-      socket = null
+  const downloadCurrentTranscript = (): void => {
+    if (!currentTranscript.value.trim()) {
+      options.onError?.('No hay texto para descargar')
+      return
     }
-    
-    state.isConnected = false
+
+    try {
+      FileOperationsService.downloadTranscription(currentTranscript.value, 'transcripcion_actual')
+      options.onSuccess?.('Transcripción descargada')
+    } catch (error) {
+      options.onError?.(error instanceof Error ? error.message : 'Error al descargar')
+    }
   }
 
-  // Limpiar texto
-  const clearText = () => {
-    state.finalText = ''
-    state.partialText = ''
+  const copyToClipboard = async (text?: string): Promise<boolean> => {
+    const textToCopy = text || currentTranscript.value
+    
+    try {
+      const success = await FileOperationsService.copyToClipboard(textToCopy)
+      if (success) {
+        options.onSuccess?.('Texto copiado al portapapeles')
+      }
+      return success
+    } catch (error) {
+      options.onError?.(error instanceof Error ? error.message : 'Error al copiar')
+      return false
+    }
   }
 
-  // Obtener texto completo (final + parcial)
-  const getFullText = computed(() => {
-    const final = state.finalText.trim()
-    const partial = state.partialText.trim()
-    
-    if (final && partial) {
-      return `${final} ${partial}`
-    }
-    return final || partial
+  // Cleanup automático
+  onUnmounted(() => {
+    stopSession()
+    webSocket.disconnect()
+    audioRecording.cleanup()
   })
 
-  // Auto-conectar cuando el composable se inicializa
-  onMounted(() => {
-    if (import.meta.client && token.value) {
-      connect()
-    }
-  })
-
-  // Limpiar al desmontar
-  onBeforeUnmount(() => {
-    disconnect()
-  })
+  // Auto-conectar si está habilitado
+  if (options.autoConnect !== false) {
+    webSocket.connect()
+  }
 
   return {
     // Estado
-    ...toRefs(state),
+    status: readonly(status),
+    transcriptionStatus: readonly(transcriptionStatus),
+    buttonState: readonly(buttonState),
+    statusClass: readonly(statusClass),
     
-    // Computed
-    getFullText,
+    // Referencias a composables especializados para casos avanzados
+    audioRecording: readonly(audioRecording),
+    webSocket: readonly(webSocket),
+    transcriptionHistory: readonly(transcriptionHistory),
     
-    // Métodos
-    connect,
-    disconnect,
-    startTranscription,
-    stopTranscription,
-    clearText
+    // Métodos principales
+    handleMainAction,
+    startSession,
+    pauseSession,
+    resumeSession,
+    stopSession,
+    
+    // Métodos de archivo
+    saveCurrentTranscript,
+    downloadCurrentTranscript,
+    copyToClipboard,
+    
+    // Getters de estado
+    isActive: () => isSessionActive.value,
+    hasCurrentText: () => currentTranscript.value.trim().length > 0,
+    sessionDuration: () => {
+      if (!sessionStartTime.value) return 0
+      return Math.round((Date.now() - sessionStartTime.value.getTime()) / 1000)
+    }
   }
 } 

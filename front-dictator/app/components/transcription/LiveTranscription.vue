@@ -1,792 +1,419 @@
 <template>
-  <div>
-    <h2>Transcripción en Tiempo Real</h2>
-    <div class="controls-section flex">
-      <button @click="handleMainAction"
-        class=" flex items-center justify-center rounded-full text-white shadow-lg transition-all duration-300"
-        :class="buttonClass">
-        <span v-if="!isTranscribing"><PlayCircleIcon class="w-10 h-10 text-white"/></span>
-        <span v-else-if="isPaused"><PlayCircleIcon class="w-10 h-10 text-white"/></span> 
-        <span v-else class="">
-          <PauseCircleIcon  class="animate-pulse relative w-10 h-10 text-red-500"/>
-        </span> 
-        <span class="sr-only">{{ buttonLabel }}</span>
-      </button>
+  <div class="live-transcription-container">
+    <header class="transcription-header">
+      <h2>🎙️ Transcripción en Tiempo Real</h2>
+      <p class="header-description">
+        Utiliza IA avanzada para transcribir tu voz en tiempo real
+      </p>
+    </header>
 
-      <button @click="stopTranscription" :disabled="!isTranscribing" class="btn-stop">
-        Finalizar Transcripción
-      </button>
-    </div>
+    <!-- Controles de Transcripción -->
+    <TranscriptionControls
+      :is-transcribing="transcriptionStatus.isTranscribing"
+      :is-paused="transcriptionStatus.isPaused"
+      :is-connected="transcriptionStatus.isConnected"
+      :status="status"
+      :status-class="statusClass"
+      :button-state="buttonState"
+      :session-duration="sessionDuration()"
+      :disabled="isLoading"
+      @main-action="handleMainAction"
+      @stop="stopSession"
+    />
 
-    <p><strong>Estado:</strong>
-      <span :class="getStatusClass()">{{ status }}</span>
-    </p>
+    <!-- Display de Transcripción -->
+    <LiveTranscriptDisplay
+      :is-transcribing="transcriptionStatus.isTranscribing"
+      :live-text="transcriptionStatus.liveText"
+      :current-text="transcriptionStatus.currentText"
+      :is-loading="isLoading"
+      @save="saveCurrentTranscript"
+      @download="downloadCurrentTranscript"
+      @copy="copyCurrentToClipboard"
+    />
 
-    <!-- Transcripción en vivo -->
-    <div class="live-section" v-if="isTranscribing">
-      <h3>Transcripción en vivo:</h3>
-      <div class="live-transcript">
-        <p>{{ liveTranscript }}</p>
-      </div>
-    </div>
-
-    <!-- Transcripción actual en progreso -->
-    <div v-if="currentTranscript" class="current-section">
-      <h3>Transcripción actual:</h3>
-      <div class="current-transcript">
-        <p>{{ currentTranscript }}</p>
-      </div>
-
-      <div class="current-controls">
-        <button @click="saveCurrentTranscript" :disabled="!currentTranscript || isTranscribing" class="btn-save">
-          Guardar Transcripción Actual
-        </button>
-        <button @click="downloadCurrentTranscript" :disabled="!currentTranscript" class="btn-download">
-          Descargar Texto Actual
-        </button>
-      </div>
-    </div>
-
-    <!-- Historial de transcripciones -->
-    <div class="history-section">
+    <!-- Historial de Transcripciones -->
+    <section class="history-section">
       <div class="history-header">
-        <h3>Historial de Transcripciones</h3>
-        <div class="history-info">
-          <span v-if="loadingHistory" class="loading-indicator">🔄 Cargando historial...</span>
-          <span v-else class="history-count">{{ transcriptionHistory.length }} transcripciones</span>
-          <button @click="refreshHistory" class="btn-refresh" :disabled="loadingHistory">
-            {{ loadingHistory ? 'Actualizando...' : '🔄 Actualizar' }}
+        <h3>📋 Historial de Transcripciones</h3>
+        <div class="history-controls">
+          <span v-if="transcriptionHistory.isLoading.value" class="loading-indicator">
+            🔄 Cargando...
+          </span>
+          <span v-else class="history-count">
+            {{ transcriptionHistory.count() }} transcripciones
+          </span>
+          
+          <button 
+            @click="refreshHistory"
+            class="refresh-btn"
+            :disabled="transcriptionHistory.isLoading.value"
+          >
+            🔄 Actualizar
+          </button>
+          
+          <button 
+            v-if="transcriptionHistory.count() > 0"
+            @click="downloadAllTranscripts"
+            class="download-all-btn"
+          >
+            📁 Descargar Todo
+          </button>
+          
+          <button 
+            v-if="transcriptionHistory.hasTemporary()"
+            @click="clearLocalHistory"
+            class="clear-btn"
+          >
+            🧹 Limpiar Local
           </button>
         </div>
       </div>
 
-      <div v-if="transcriptionHistory.length > 0" class="history-controls">
-        <button @click="clearHistory" class="btn-clear-history">
-          Limpiar Historial Local
-        </button>
-        <button @click="downloadAllTranscripts" class="btn-download-all">
-          Descargar Todo el Historial
-        </button>
-      </div>
-
-      <div v-if="loadingHistory" class="loading-message">
+      <!-- Lista de Transcripciones -->
+      <div v-if="transcriptionHistory.isLoading.value" class="loading-state">
         <p>📥 Cargando historial desde el servidor...</p>
       </div>
 
-      <div v-else-if="transcriptionHistory.length === 0" class="empty-history">
-        <p>📝 No hay transcripciones en el historial. ¡Crea tu primera transcripción!</p>
+      <div v-else-if="transcriptionHistory.count() === 0" class="empty-history">
+        <span class="empty-icon">📝</span>
+        <h4>No hay transcripciones en el historial</h4>
+        <p>¡Crea tu primera transcripción usando el micrófono!</p>
       </div>
 
       <div v-else class="history-list">
-        <div class="transcription-item" v-for="(item, index) in transcriptionHistory" :key="item.id">
-          <div class="transcription-header">
-            <div class="transcription-title">
-              <h4>
-                {{ item.filename || `Transcripción #${index + 1}` }}
-                <span v-if="!item._id" class="temp-badge">📝 Temporal</span>
-                <span v-else class="saved-badge">💾 Guardado</span>
-              </h4>
-              <span class="transcription-date">{{ item.timestamp }}</span>
-            </div>
-            <div class="item-controls">
-              <button @click="saveTranscriptItem(item)" v-if="!item._id" class="btn-save-small"
-                title="Guardar en el servidor">
-                💾 Guardar
-              </button>
-              <button @click="downloadTranscriptItem(item)" class="btn-download-small" title="Descargar como archivo">
-                📁 Descargar
-              </button>
-              <button @click="deleteTranscriptItem(item.id)" class="btn-delete"
-                :title="item._id ? 'Eliminar del servidor' : 'Eliminar localmente'">
-                🗑️ Eliminar
-              </button>
-            </div>
-          </div>
-          <div class="transcription-meta">
-            <span class="duration-info">⏱️ {{ item.duration }}</span>
-            <span v-if="item._id" class="server-info">🌐 En servidor</span>
-            <span v-else class="local-info">💻 Solo local</span>
-          </div>
-          <div class="transcription-content">
-            <p>{{ item.text }}</p>
-          </div>
-        </div>
+        <TranscriptionHistoryItem
+          v-for="(item, index) in transcriptionHistory.transcriptions"
+          :key="item.id"
+          :item="item"
+          :index="index"
+          :is-loading="isActionLoading"
+          @save="saveHistoryItem"
+          @copy="copyHistoryItem"
+          @download="downloadHistoryItem"
+          @delete="deleteHistoryItem"
+        />
       </div>
+    </section>
+
+    <!-- Notificaciones Toast -->
+    <div v-if="notification" class="notification" :class="notification.type">
+      {{ notification.message }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
-import { io, Socket } from 'socket.io-client';
-import { MicrophoneIcon, PauseIcon,PauseCircleIcon, PlayIcon, PlayCircleIcon } from '@heroicons/vue/24/solid'
+import { ref, onMounted } from 'vue'
+import { useRealTimeTranscription } from '~/composables/useRealTimeTranscription'
+import { FileOperationsService } from '~/utils/fileOperationsService'
+import TranscriptionControls from './TranscriptionControls.vue'
+import LiveTranscriptDisplay from './LiveTranscriptDisplay.vue'
+import TranscriptionHistoryItem from './TranscriptionHistoryItem.vue'
+import type { TranscriptionItem } from '~/composables/useTranscriptionHistory'
 
-
-interface TranscriptionItem {
-  id: string;
-  text: string;
-  timestamp: string;
-  duration?: string;
-  startTime: Date;
-  endTime: Date;
-  _id?: string; // ID de la base de datos
-  createdAt?: string; // Fecha de creación desde la DB
-  filename?: string; // Nombre del archivo desde la DB
-}
-
-const isTranscribing = ref(false);
-const isPaused = ref(false);
-const status = ref('Detenido');
-const liveTranscript = ref('');
-const currentTranscript = ref('');
-const transcriptionHistory = ref<TranscriptionItem[]>([]);
-const loadingHistory = ref(false);
-
-let mediaRecorder: MediaRecorder | null = null;
-let socket: Socket | null = null;
-let currentSessionStartTime: Date | null = null;
-
-const API_BASE_URL = 'http://localhost:4000';
-
-onMounted(() => {
-  socket = io(API_BASE_URL);
-
-  socket.on('connect', () => {
-    console.log('Connected to socket server');
-  });
-
-  socket.on('partial_transcript', (data) => {
-    if (!isPaused.value) {
-      const partialText = data.results
-        .map((r: any) => r.alternatives?.[0].content)
-        .join(' ');
-      liveTranscript.value = partialText;
-    }
-  });
-
-  socket.on('final_transcript', (data) => {
-    if (!isPaused.value) {
-      const finalText = data.results
-        .map((r: any) => r.alternatives?.[0].content)
-        .join(' ');
-      liveTranscript.value = finalText;
-
-      // Acumular el texto final en la transcripción actual
-      if (finalText.trim()) {
-        currentTranscript.value += (currentTranscript.value ? ' ' : '') + finalText.trim();
-      }
-    }
-  });
-
-  socket.on('error', (errorMessage) => {
-    console.error('Socket error:', errorMessage);
-    status.value = `Error: ${errorMessage}`;
-    stopTranscription();
-  });
-
-  socket.on('recognition_started', () => {
-    console.log('Recognition started, beginning to send audio.');
-    startSendingAudio();
-  });
-
-  // Cargar historial desde la base de datos
-  loadHistoryFromDatabase();
-});
-
-onUnmounted(() => {
-  stopTranscription();
-  socket?.disconnect();
-});
-
-// Función para cargar el historial desde la base de datos
-const loadHistoryFromDatabase = async () => {
-  loadingHistory.value = true;
-
-  try {
-    const token = localStorage.getItem('auth-token');
-    if (!token) {
-      console.log('No token found, skipping history load');
-      return;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/api/history`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (response.ok) {
-      const dbTranscripts = await response.json();
-
-      // Convertir las transcripciones de la DB al formato local
-      transcriptionHistory.value = dbTranscripts
-        .filter((item: any) => item.text && item.text.trim()) // Solo transcripciones con texto
-        .map((item: any) => ({
-          id: item._id,
-          _id: item._id,
-          text: item.text,
-          filename: item.filename,
-          timestamp: new Date(item.createdAt).toLocaleString(),
-          duration: 'Guardado',
-          startTime: new Date(item.createdAt),
-          endTime: new Date(item.updatedAt || item.createdAt),
-          createdAt: item.createdAt
-        }))
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-      console.log(`Historial cargado: ${transcriptionHistory.value.length} transcripciones`);
-    } else {
-      console.error('Error al cargar historial:', response.status);
-    }
-  } catch (error) {
-    console.error('Error al cargar historial desde la base de datos:', error);
-  } finally {
-    loadingHistory.value = false;
-  }
-};
-
-// Función para refrescar el historial
-const refreshHistory = async () => {
-  await loadHistoryFromDatabase();
-};
-
-const getStatusClass = () => {
-  if (status.value.includes('Error')) return 'status-error';
-  if (isTranscribing.value && !isPaused.value) return 'status-recording';
-  if (isPaused.value) return 'status-paused';
-  return 'status-stopped';
-};
-
-function handleMainAction() {
-  if (!isTranscribing.value) {
-    startTranscription()
-  } else if (!isPaused.value) {
-    pauseTranscription()
-  } else {
-    resumeTranscription()
-  }
-}
-
-const buttonLabel = computed(() => {
-  if (!isTranscribing.value) return 'Comenzar Grabación'
-  if (isPaused.value) return 'Reanudar Grabación'
-  return 'Pausar Grabación'
+// Middleware para proteger la ruta
+definePageMeta({
+  middleware: 'authenticated'
 })
 
-const buttonClass = computed(() => {
-  if (!isTranscribing.value) return 'bg-green-500 hover:bg-green-600'
-  if (isPaused.value) return 'bg-blue-500 hover:bg-blue-600'
-  return 'bg-neutral-200 hover:bg-neutral-300 border border-red-600'
+// Estado para notificaciones
+const notification = ref<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+const isLoading = ref(false)
+const isActionLoading = ref(false)
+
+// Configurar transcripción en tiempo real
+const transcription = useRealTimeTranscription({
+  apiBaseUrl: 'http://localhost:4000',
+  autoConnect: true,
+  onSuccess: (message) => showNotification(message, 'success'),
+  onError: (error) => showNotification(error, 'error')
 })
 
-const startTranscription = async () => {
-  if (isTranscribing.value && !isPaused.value) return;
+// Destructuring de las propiedades del composable
+const {
+  status,
+  transcriptionStatus,
+  buttonState,
+  statusClass,
+  transcriptionHistory,
+  handleMainAction,
+  stopSession,
+  saveCurrentTranscript: saveTranscript,
+  downloadCurrentTranscript: downloadTranscript,
+  copyToClipboard,
+  sessionDuration
+} = transcription
 
-  if (socket?.disconnected) {
-    socket.connect();
-  }
+// Métodos de manejo de notificaciones
+const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+  notification.value = { message, type }
+  setTimeout(() => {
+    notification.value = null
+  }, 4000)
+}
 
-  isTranscribing.value = true;
-  isPaused.value = false;
-  status.value = 'Iniciando...';
-  liveTranscript.value = '';
-  currentSessionStartTime = new Date();
-
-  socket?.emit('start_recognition');
-};
-
-const startSendingAudio = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0 && !isPaused.value) {
-        socket?.emit('send_audio', event.data);
-      }
-    };
-
-    mediaRecorder.start(1000); // Enviar datos cada segundo
-    status.value = '¡Habla ahora!';
-  } catch (error) {
-    console.error('Error al iniciar transcripción:', error);
-    status.value = `Error: ${error instanceof Error ? error.message : 'Desconocido'}`;
-    stopTranscription();
-  }
-};
-
-const pauseTranscription = () => {
-  if (!isTranscribing.value || isPaused.value) return;
-
-  isPaused.value = true;
-  status.value = 'Pausado';
-  socket?.emit('pause_recognition');
-};
-
-const resumeTranscription = () => {
-  if (!isTranscribing.value || !isPaused.value) return;
-
-  isPaused.value = false;
-  status.value = '¡Habla ahora!';
-  socket?.emit('resume_recognition');
-};
-
-const stopTranscription = () => {
-  if (!isTranscribing.value) return;
-
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    mediaRecorder.stop();
-  }
-
-  socket?.emit('stop_recognition');
-  mediaRecorder?.stream.getTracks().forEach(track => track.stop());
-
-  // Crear nueva entrada en el historial LOCAL si hay texto
-  if (currentTranscript.value.trim()) {
-    const endTime = new Date();
-    const duration = currentSessionStartTime
-      ? `${Math.round((endTime.getTime() - currentSessionStartTime.getTime()) / 1000)}s`
-      : 'N/A';
-
-    const newTranscription: TranscriptionItem = {
-      id: `temp_transcript_${Date.now()}`, // ID temporal hasta que se guarde
-      text: currentTranscript.value.trim(),
-      timestamp: endTime.toLocaleString(),
-      duration,
-      startTime: currentSessionStartTime || endTime,
-      endTime
-    };
-
-    // Agregar al historial local (temporal hasta que se guarde)
-    transcriptionHistory.value.unshift(newTranscription);
-  }
-
-  // Limpiar estado actual
-  isTranscribing.value = false;
-  isPaused.value = false;
-  status.value = 'Detenido';
-  mediaRecorder = null;
-  liveTranscript.value = '';
-  currentTranscript.value = '';
-  currentSessionStartTime = null;
-};
-
+// Métodos para manejar transcripción actual
 const saveCurrentTranscript = async () => {
-  if (!currentTranscript.value.trim()) {
-    alert('No hay texto para guardar');
-    return;
-  }
-
-  const result = await saveTranscriptText(currentTranscript.value, 'Transcripción actual en progreso');
-  if (result) {
-    // Refrescar el historial después de guardar
-    await refreshHistory();
-  }
-};
-
-const saveTranscriptItem = async (item: TranscriptionItem) => {
-  // Si es una transcripción temporal (no guardada), guardarla
-  if (!item._id && item.id.startsWith('temp_')) {
-    const result = await saveTranscriptText(item.text, `Transcripción #${transcriptionHistory.value.indexOf(item) + 1}`);
-    if (result) {
-      // Refrescar el historial después de guardar
-      await refreshHistory();
-    }
-  } else {
-    alert('Esta transcripción ya está guardada en el servidor');
-  }
-};
-
-const saveTranscriptText = async (text: string, filename: string) => {
+  isLoading.value = true
   try {
-    const token = localStorage.getItem('auth-token');
-    if (!token) {
-      alert('No estás autenticado. Por favor, inicia sesión.');
-      return false;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/api/transcribe/realtime`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        text: text,
-        filename: `${filename} - ${new Date().toLocaleString()}`
-      })
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      alert('Transcripción guardada exitosamente');
-      console.log('Transcripción guardada:', result);
-      return true;
-    } else {
-      const error = await response.json();
-      alert(`Error al guardar: ${error.msg || 'Error desconocido'}`);
-      return false;
-    }
-  } catch (error) {
-    console.error('Error al guardar transcripción:', error);
-    alert('Error al conectar con el servidor');
-    return false;
+    await saveTranscript()
+  } finally {
+    isLoading.value = false
   }
-};
+}
 
 const downloadCurrentTranscript = () => {
-  if (!currentTranscript.value.trim()) {
-    alert('No hay texto para descargar');
-    return;
-  }
+  downloadTranscript()
+}
 
-  downloadText(currentTranscript.value, 'transcripcion_actual');
-};
+const copyCurrentToClipboard = () => {
+  copyToClipboard()
+}
 
-const downloadTranscriptItem = (item: TranscriptionItem) => {
-  const index = transcriptionHistory.value.indexOf(item) + 1;
-  downloadText(item.text, `transcripcion_${index}`);
-};
+// Métodos para manejar historial
+const refreshHistory = async () => {
+  await transcriptionHistory.refresh()
+}
 
 const downloadAllTranscripts = () => {
-  if (transcriptionHistory.value.length === 0) {
-    alert('No hay transcripciones para descargar');
-    return;
+  try {
+    const transcripts = transcriptionHistory.transcriptions.map((item: TranscriptionItem) => ({
+      text: item.text,
+      timestamp: item.timestamp,
+      duration: item.duration,
+      filename: item.filename
+    }))
+    
+    FileOperationsService.downloadMultipleTranscriptions(transcripts)
+    showNotification('Historial completo descargado', 'success')
+  } catch (error) {
+    showNotification(
+      error instanceof Error ? error.message : 'Error al descargar historial',
+      'error'
+    )
   }
+}
 
-  const allText = transcriptionHistory.value
-    .map((item, index) => {
-      return `=== Transcripción #${index + 1} ===\nFecha: ${item.timestamp}\nDuración: ${item.duration}\nArchivo: ${item.filename || 'Sin nombre'}\n\n${item.text}\n\n`;
-    })
-    .join('\n');
-
-  downloadText(allText, 'historial_completo');
-};
-
-const downloadText = (text: string, filename: string) => {
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${filename}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-};
-
-const deleteTranscriptItem = async (id: string) => {
-  if (confirm('¿Estás seguro de que quieres eliminar esta transcripción?')) {
-    const item = transcriptionHistory.value.find(item => item.id === id);
-
-    if (item && item._id) {
-      // Si tiene _id, está en la base de datos - aquí podrías implementar la eliminación del servidor
-      alert('Funcionalidad de eliminación del servidor no implementada aún');
-    } else {
-      // Es una transcripción temporal, eliminar solo del historial local
-      transcriptionHistory.value = transcriptionHistory.value.filter(item => item.id !== id);
+const clearLocalHistory = async () => {
+  if (confirm('¿Estás seguro de que quieres eliminar todo el historial local? (Las transcripciones guardadas en el servidor permanecerán)')) {
+    const success = await transcriptionHistory.clearLocalHistory()
+    if (success) {
+      showNotification('Historial local limpiado', 'success')
     }
   }
-};
+}
 
-const clearHistory = async () => {
-  if (confirm('¿Estás seguro de que quieres eliminar todo el historial local? (Las transcripciones guardadas en el servidor permanecerán)')) {
-    transcriptionHistory.value = [];
-    // Recargar desde la base de datos para mantener solo las guardadas
-    await refreshHistory();
+// Métodos para items individuales del historial
+const saveHistoryItem = async (item: TranscriptionItem) => {
+  isActionLoading.value = true
+  try {
+    const success = await transcriptionHistory.saveExistingItem(item)
+    if (success) {
+      showNotification('Transcripción guardada exitosamente', 'success')
+    }
+  } finally {
+    isActionLoading.value = false
   }
-};
+}
+
+const copyHistoryItem = async (text: string) => {
+  try {
+    const success = await FileOperationsService.copyToClipboard(text)
+    if (success) {
+      showNotification('Texto copiado al portapapeles', 'success')
+    }
+  } catch (error) {
+    showNotification(
+      error instanceof Error ? error.message : 'Error al copiar',
+      'error'
+    )
+  }
+}
+
+const downloadHistoryItem = (item: TranscriptionItem) => {
+  try {
+    const index = transcriptionHistory.transcriptions.indexOf(item) + 1
+    FileOperationsService.downloadTranscription(
+      item.text,
+      item.filename || `transcripcion_${index}`
+    )
+    showNotification('Transcripción descargada', 'success')
+  } catch (error) {
+    showNotification(
+      error instanceof Error ? error.message : 'Error al descargar',
+      'error'
+    )
+  }
+}
+
+const deleteHistoryItem = async (id: string) => {
+  if (confirm('¿Estás seguro de que quieres eliminar esta transcripción?')) {
+    const success = transcriptionHistory.deleteLocalItem(id)
+    if (success) {
+      showNotification('Transcripción eliminada', 'success')
+    }
+  }
+}
+
+// Cargar historial al montar
+onMounted(() => {
+  transcriptionHistory.refresh()
+})
 </script>
 
 <style scoped>
-/* Estilos generales */
-.controls-section {
-  margin-bottom: 20px;
-  padding: 15px;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-}
-
-button {
-  margin: 5px;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-button:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-
-.btn-stop {
-  background-color: #f44336;
-  color: white;
-}
-
-.btn-save,
-.btn-save-small {
-  background-color: #9C27B0;
-  color: white;
-}
-
-.btn-download,
-.btn-download-small {
-  background-color: #607D8B;
-  color: white;
-}
-
-.btn-download-all {
-  background-color: #795548;
-  color: white;
-}
-
-.btn-clear-history {
-  background-color: #FF5722;
-  color: white;
-}
-
-.btn-delete {
-  background-color: #f44336;
-  color: white;
-  padding: 4px 8px;
-  font-size: 12px;
-}
-
-.btn-refresh {
-  background-color: #007bff;
-  color: white;
-  padding: 4px 8px;
-  font-size: 12px;
-}
-
-/* Estados */
-.status-recording {
-  color: #4CAF50;
-  font-weight: bold;
-}
-
-.status-paused {
-  color: #ff9800;
-  font-weight: bold;
-}
-
-.status-error {
-  color: #f44336;
-  font-weight: bold;
-}
-
-.status-stopped {
-  color: #666;
-}
-
-/* Secciones */
-.live-section,
-.current-section,
-.history-section {
-  margin: 20px 0;
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-}
-
-.live-section {
-  background-color: #e8f5e8;
-}
-
-.current-section {
-  background-color: #f0f8ff;
-}
-
-.history-section {
-  background-color: #fff8e1;
-}
-
-/* Transcripciones */
-.live-transcript,
-.current-transcript {
-  max-height: 150px;
-  overflow-y: auto;
-  border: 1px solid #ccc;
-  padding: 10px;
-  background-color: white;
-  border-radius: 4px;
-  margin: 10px 0;
-}
-
-.transcription-item {
-  margin: 15px 0;
-  padding: 15px;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  background-color: white;
+.live-transcription-container {
+  @apply max-w-6xl mx-auto p-6 space-y-8;
 }
 
 .transcription-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  @apply text-center mb-8;
 }
 
-.transcription-title {
-  flex: 1;
+.transcription-header h2 {
+  @apply text-3xl font-bold text-gray-800 mb-2;
 }
 
-.transcription-meta {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-  align-items: center;
+.header-description {
+  @apply text-gray-600 text-lg;
 }
 
-.transcription-header h4 {
-  margin: 0;
-  color: #333;
-}
-
-.transcription-date {
-  font-size: 12px;
-  color: #666;
-}
-
-.item-controls {
-  display: flex;
-  gap: 5px;
-}
-
-.transcription-content {
-  max-height: 100px;
-  overflow-y: auto;
-  background-color: #fafafa;
-  padding: 10px;
-  border-radius: 4px;
-}
-
-.transcription-content p {
-  margin: 0;
-  white-space: pre-wrap;
-  line-height: 1.4;
-}
-
-.current-controls,
-.history-controls {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #eee;
-}
-
-p {
-  min-height: 1.2em;
-}
-
-h3 {
-  margin-top: 20px;
-  margin-bottom: 10px;
-  color: #333;
-}
-
-h4 {
-  margin: 0 0 5px 0;
-  color: #555;
+/* Sección de historial */
+.history-section {
+  @apply bg-white rounded-lg border border-gray-200 p-6 shadow-sm;
 }
 
 .history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  @apply flex justify-between items-center mb-6 pb-4 border-b border-gray-200;
 }
 
-.history-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.history-header h3 {
+  @apply text-xl font-semibold text-gray-800 m-0;
+}
+
+.history-controls {
+  @apply flex items-center gap-3 flex-wrap;
 }
 
 .loading-indicator,
 .history-count {
-  font-size: 14px;
-  color: #666;
+  @apply text-sm text-gray-600 font-medium;
 }
 
-.loading-message,
+.refresh-btn,
+.download-all-btn,
+.clear-btn {
+  @apply px-3 py-1.5 rounded-md text-sm font-medium transition-colors border-none cursor-pointer;
+}
+
+.refresh-btn {
+  @apply bg-blue-100 text-blue-700 hover:bg-blue-200;
+}
+
+.download-all-btn {
+  @apply bg-green-100 text-green-700 hover:bg-green-200;
+}
+
+.clear-btn {
+  @apply bg-red-100 text-red-700 hover:bg-red-200;
+}
+
+.refresh-btn:disabled {
+  @apply bg-gray-100 text-gray-400 cursor-not-allowed;
+}
+
+/* Estados del historial */
+.loading-state,
 .empty-history {
-  text-align: center;
-  padding: 20px;
-  margin: 20px 0;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  border: 1px dashed #ddd;
+  @apply text-center py-12 text-gray-600;
 }
 
-.loading-message p,
+.empty-history {
+  @apply bg-gray-50 rounded-lg border-2 border-dashed border-gray-300;
+}
+
+.empty-icon {
+  @apply text-4xl mb-4 block;
+}
+
+.empty-history h4 {
+  @apply text-lg font-semibold text-gray-700 mb-2;
+}
+
 .empty-history p {
-  margin: 0;
-  font-size: 16px;
-  color: #666;
-}
-
-.temp-badge {
-  background-color: #ffeb3b;
-  color: #333;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: bold;
-  font-size: 10px;
-  margin-left: 8px;
-}
-
-.saved-badge {
-  background-color: #4CAF50;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: bold;
-  font-size: 10px;
-  margin-left: 8px;
-}
-
-.server-info {
-  background-color: #e0f2f7;
-  color: #007bff;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: bold;
-  font-size: 11px;
-}
-
-.local-info {
-  background-color: #f0f0f0;
-  color: #555;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: bold;
-  font-size: 11px;
-}
-
-.duration-info {
-  font-size: 12px;
-  color: #666;
-  font-weight: 500;
+  @apply text-gray-500 m-0;
 }
 
 .history-list {
-  border: 1px solid red;
+  @apply space-y-4;
+}
+
+/* Notificaciones */
+.notification {
+  @apply fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 font-medium text-white;
+  animation: slideIn 0.3s ease-out;
+}
+
+.notification.success {
+  @apply bg-green-500;
+}
+
+.notification.error {
+  @apply bg-red-500;
+}
+
+.notification.info {
+  @apply bg-blue-500;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .live-transcription-container {
+    @apply p-4 space-y-6;
+  }
+  
+  .transcription-header h2 {
+    @apply text-2xl;
+  }
+  
+  .header-description {
+    @apply text-base;
+  }
+  
+  .history-header {
+    @apply flex-col items-stretch gap-4;
+  }
+  
+  .history-controls {
+    @apply justify-center;
+  }
+  
+  .notification {
+    @apply left-4 right-4;
+  }
+}
+
+@media (max-width: 640px) {
+  .history-controls {
+    @apply flex-col;
+  }
+  
+  .refresh-btn,
+  .download-all-btn,
+  .clear-btn {
+    @apply w-full text-center;
+  }
 }
 </style>

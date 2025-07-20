@@ -1,238 +1,443 @@
 <template>
+  <div class="history-container">
+    <!-- Header del Historial -->
+    <div class="history-header">
+      <div class="header-content">
+        <h1 class="history-title">
+          📋 Historial de Transcripciones
+          <span v-if="transcriptionHistory.count() > 0" class="count-badge">
+            {{ transcriptionHistory.count() }}
+          </span>
+        </h1>
+        
+        <div class="header-actions">
+          <button 
+            @click="refreshHistory"
+            :disabled="isLoading"
+            class="action-btn refresh-btn"
+            title="Actualizar historial"
+          >
+            <span v-if="isLoading">⏳</span>
+            <span v-else>🔄</span>
+            Actualizar
+          </button>
+          
+          <button 
+            @click="showFilters = !showFilters"
+            class="action-btn filter-btn"
+            :class="{ active: showFilters }"
+            title="Mostrar/ocultar filtros"
+          >
+            🔍 Filtros
+          </button>
+        </div>
+      </div>
 
-      <section class="history-section">
-        <div class="section-card">
-          <div class="section-header">
-            <h2>📋 Historial de Transcripciones</h2>
-            <button @click="loadTranscriptions" class="refresh-btn" :disabled="loadingHistory">
-              {{ loadingHistory ? '🔄' : '🔄' }} Actualizar
+      <!-- Estadísticas Rápidas -->
+      <div class="stats-bar">
+        <div class="stat-item">
+          <span class="stat-icon">📄</span>
+          <div class="stat-info">
+            <span class="stat-number">{{ statistics.totalDocuments }}</span>
+            <span class="stat-label">Total</span>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <span class="stat-icon">📝</span>
+          <div class="stat-info">
+            <span class="stat-number">{{ transcriptionHistory.getTemporaryTranscriptions().length }}</span>
+            <span class="stat-label">Temporales</span>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <span class="stat-icon">📊</span>
+          <div class="stat-info">
+            <span class="stat-number">{{ totalWords }}</span>
+            <span class="stat-label">Palabras</span>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <span class="stat-icon">🔤</span>
+          <div class="stat-info">
+            <span class="stat-number">{{ totalCharacters }}</span>
+            <span class="stat-label">Caracteres</span>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <span class="stat-icon">📋</span>
+          <div class="stat-info">
+            <span class="stat-number">{{ statistics.avgWordsPerDoc }}</span>
+            <span class="stat-label">Promedio</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel de Filtros -->
+      <div v-if="showFilters" class="filters-panel">
+        <div class="filters-row">
+          <div class="filter-group">
+            <label class="filter-label">🔍 Buscar:</label>
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Buscar en transcripciones..."
+              class="filter-input"
+            />
+          </div>
+          
+          <div class="filter-group">
+            <label class="filter-label">📂 Período:</label>
+            <select v-model="filterType" class="filter-select">
+              <option value="all">Todas</option>
+              <option value="recent">Recientes (7 días)</option>
+              <option value="old">Antiguas (>30 días)</option>
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label class="filter-label">📅 Ordenar:</label>
+            <select v-model="sortBy" class="filter-select">
+              <option value="newest">Más recientes</option>
+              <option value="oldest">Más antiguas</option>
+              <option value="longest">Más largas</option>
+              <option value="shortest">Más cortas</option>
+            </select>
+          </div>
+          
+          <button 
+            @click="clearFilters"
+            class="action-btn clear-filters-btn"
+            title="Limpiar filtros"
+          >
+            ✨ Limpiar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="history-content">
+      <!-- Loading State -->
+      <div v-if="isLoading" class="loading-state">
+        <div class="loading-spinner">⏳</div>
+        <p>Cargando transcripciones...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else-if="transcriptions.length === 0" class="empty-state">
+        <div class="empty-icon">📭</div>
+        <h3>{{ searchQuery ? 'No se encontraron resultados' : 'No hay transcripciones aún' }}</h3>
+        <p v-if="searchQuery" class="empty-subtitle">
+          Intenta con otros términos de búsqueda
+        </p>
+        <p v-else class="empty-subtitle">
+          ¡Comienza creando tu primera transcripción!
+        </p>
+        
+        <div class="empty-actions">
+          <NuxtLink to="/realtime" class="action-btn primary-btn">
+            🎙️ Transcripción en Vivo
+          </NuxtLink>
+          <NuxtLink to="/transcription" class="action-btn secondary-btn">
+            📁 Subir Audio
+          </NuxtLink>
+        </div>
+      </div>
+
+      <!-- Lista de Transcripciones -->
+      <div v-else class="transcriptions-grid">
+        <TranscriptionHistoryItem
+          v-for="(transcription, index) in transcriptions"
+          :key="transcription.id"
+          :item="transcription"
+          :index="getGlobalIndex(index)"
+          :is-loading="loadingItems.has(transcription.id)"
+          @save="handleSaveItem"
+          @copy="handleCopyText"
+          @download="handleDownloadItem"
+          @downloadJson="handleDownloadJsonItem"
+          @share="handleShareItem"
+          @update="handleUpdateItem"
+          @duplicate="handleDuplicateItem"
+          @delete="handleDeleteItem"
+        />
+      </div>
+
+      <!-- Paginación -->
+      <div v-if="totalPages > 1" class="pagination-container">
+        <div class="pagination-info">
+          Mostrando {{ paginationInfo.start }} - {{ paginationInfo.end }} de {{ paginationInfo.total }}
+        </div>
+        
+        <div class="pagination-controls">
+          <button 
+            @click="goToPage(1)"
+            :disabled="currentPage === 1"
+            class="pagination-btn"
+            title="Primera página"
+          >
+            ⏮️
+          </button>
+          
+          <button 
+            @click="goToPage(currentPage - 1)"
+            :disabled="currentPage === 1"
+            class="pagination-btn"
+            title="Página anterior"
+          >
+            ◀️
+          </button>
+          
+          <div class="page-numbers">
+            <button
+              v-for="page in visiblePages"
+              :key="page"
+              @click="goToPage(page)"
+              class="pagination-btn page-number"
+              :class="{ active: page === currentPage }"
+            >
+              {{ page }}
             </button>
           </div>
           
-          <div v-if="loadingHistory" class="loading-state">
-            <p>⏳ Cargando transcripciones...</p>
-          </div>
+          <button 
+            @click="goToPage(currentPage + 1)"
+            :disabled="currentPage === totalPages"
+            class="pagination-btn"
+            title="Página siguiente"
+          >
+            ▶️
+          </button>
           
-          <div v-else-if="transcriptions.length === 0" class="empty-state">
-            <p>📭 No hay transcripciones aún</p>
-            <p class="empty-subtitle">¡Sube tu primer archivo de audio!</p>
-          </div>
-          
-          <div v-else class="transcriptions-list">
-            <div 
-              v-for="transcription in transcriptions" 
-              :key="transcription._id"
-              class="transcription-item"
-            >
-              <div class="transcription-header">
-                <h3>{{ transcription.filename || 'Audio sin nombre' }}</h3>
-                <span class="transcription-date">
-                  {{ formatDate(transcription.createdAt) }}
-                </span>
-              </div>
-              
-              <div class="transcription-content">
-                <p v-if="transcription.text" class="transcription-text">
-                  "{{ transcription.text }}"
-                </p>
-                <p v-else class="no-transcription">
-                  ⚠️ Transcripción no disponible
-                </p>
-              </div>
-              
-              <div class="transcription-actions">
-                <button 
-                  @click="copyToClipboard(transcription.text)"
-                  class="action-btn copy-btn"
-                  :disabled="!transcription.text"
-                >
-                  📋 Copiar
-                </button>
-                <button 
-                  @click="downloadTranscription(transcription)"
-                  class="action-btn download-btn"
-                >
-                  💾 Descargar
-                </button>
-              </div>
-            </div>
-          </div>
+          <button 
+            @click="goToPage(totalPages)"
+            :disabled="currentPage === totalPages"
+            class="pagination-btn"
+            title="Última página"
+          >
+            ⏭️
+          </button>
         </div>
-      </section>
+        
+        <div class="pagination-settings">
+          <label class="pagination-label">Items por página:</label>
+          <select v-model="itemsPerPage" class="pagination-select">
+            <option :value="5">5</option>
+            <option :value="10">10</option>
+            <option :value="20">20</option>
+            <option :value="50">50</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Acciones de Lote -->
+      <div v-if="transcriptionHistory.count() > 0" class="bulk-actions">
+        <div class="bulk-info">
+          <span class="bulk-icon">🛠️</span>
+          <span class="bulk-text">Acciones en lote:</span>
+        </div>
+        
+        <div class="bulk-buttons">
+          <div class="export-group">
+            <button 
+              @click="exportAllToFile('txt')"
+              class="action-btn export-btn"
+              title="Exportar como archivo de texto"
+            >
+              📄 Exportar TXT
+            </button>
+            
+            <button 
+              @click="exportAllToFile('json')"
+              class="action-btn export-json-btn"
+              title="Exportar con metadatos JSON"
+            >
+              📋 Exportar JSON
+            </button>
+            
+            <button 
+              @click="exportAllToFile('csv')"
+              class="action-btn export-csv-btn"
+              title="Exportar como hoja de cálculo"
+            >
+              📊 Exportar CSV
+            </button>
+          </div>
+          
+          <button 
+            v-if="transcriptionHistory.hasTemporary()"
+            @click="saveAllTemporary"
+            class="action-btn save-all-btn"
+            :disabled="isSavingAll"
+            title="Guardar todas las transcripciones temporales"
+          >
+            <span v-if="isSavingAll">⏳</span>
+            <span v-else>💾</span>
+            Guardar Temporales
+          </button>
+          
+          <button 
+            @click="clearLocalHistory"
+            class="action-btn danger-btn"
+            title="Limpiar historial local (mantiene las guardadas)"
+          >
+            🗑️ Limpiar Local
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notificación -->
+    <div v-if="notification" class="notification" :class="notification.type">
+      {{ notification.message }}
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { useUserSession } from '~/composables/useUserSession'
+<script setup lang="ts">
+import { ref, computed, onMounted, watch } from 'vue'
+import { useTranscriptionHistory, type TranscriptionItem, type FilterOptions } from '~/composables/useTranscriptionHistory'
+import TranscriptionHistoryItem from '~/components/transcription/TranscriptionHistoryItem.vue'
 
-// Middleware para proteger la ruta
-definePageMeta({
-  middleware: 'authenticated'
+// Estados reactivos
+const showFilters = ref(false)
+const searchQuery = ref('')
+const filterType = ref<'all' | 'recent' | 'old'>('all')
+const sortBy = ref<'newest' | 'oldest' | 'longest' | 'shortest'>('newest')
+const itemsPerPage = ref(10)
+const loadingItems = ref(new Set<string>())
+const isSavingAll = ref(false)
+const notification = ref<{ message: string; type: string } | null>(null)
+
+// Composable del historial con paginación del servidor
+const transcriptionHistory = useTranscriptionHistory({
+  autoLoad: true,
+  initialPageSize: itemsPerPage.value,
+  onError: (error) => showNotification(error, 'error'),
+  onSuccess: (message) => showNotification(message, 'success')
 })
 
-// Composables
-const { loggingOut } = useUserSession()
+const { 
+  transcriptions, 
+  pagination, 
+  statistics, 
+  currentFilters,
+  isLoading, 
+  loadPage,
+  changePageSize,
+  applyFilters,
+  refresh
+} = transcriptionHistory
 
-// Estado reactivo
-const fileInput = ref(null)
-const selectedFile = ref(null)
-const uploading = ref(false)
-const uploadProgress = ref(0)
-const loadingHistory = ref(false)
-const transcriptions = ref([])
-const notification = ref(null)
+// Computadas para usar las estadísticas del servidor
+const totalWords = computed(() => statistics.value.totalWords)
+const totalCharacters = computed(() => statistics.value.totalCharacters)
 
-// Cargar transcripciones al montar el componente
-onMounted(() => {
-  loadTranscriptions()
+// Computadas para paginación (ahora vienen del servidor)
+const currentPage = computed(() => pagination.value.currentPage)
+const totalPages = computed(() => pagination.value.totalPages)
+
+const paginationInfo = computed(() => ({
+  start: pagination.value.startIndex,
+  end: pagination.value.endIndex,
+  total: pagination.value.totalCount
+}))
+
+const visiblePages = computed(() => {
+  const total = totalPages.value
+  const current = currentPage.value
+  const delta = 2
+  const pages: number[] = []
+  
+  const start = Math.max(1, current - delta)
+  const end = Math.min(total, current + delta)
+  
+  for (let i = start; i <= end; i++) {
+    pages.push(i)
+  }
+  
+  return pages
+})
+
+// Watchers para aplicar filtros automáticamente
+watch([searchQuery, filterType, sortBy], async () => {
+  await applyCurrentFilters()
+})
+
+watch(itemsPerPage, async (newValue) => {
+  await changePageSize(newValue)
 })
 
 // Métodos
-const handleFileSelect = (event) => {
-  const file = event.target.files[0]
-  
-  if (!file) {
-    selectedFile.value = null
-    return
+const applyCurrentFilters = async () => {
+  const filters: FilterOptions = {
+    search: searchQuery.value.trim() || undefined,
+    type: filterType.value !== 'all' ? filterType.value : undefined,
+    sortBy: sortBy.value
   }
   
-  // Validar tipo de archivo
-  const validTypes = ['audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/m4a']
-  const isValidType = validTypes.some(type => file.type.includes(type.split('/')[1])) || 
-                     file.name.match(/\.(mp3|wav|m4a|aac|ogg)$/i)
-  
-  if (!isValidType) {
-    showNotification('Por favor selecciona un archivo de audio válido (.mp3, .wav, .m4a, .aac, .ogg)', 'error')
-    event.target.value = ''
-    selectedFile.value = null
-    return
-  }
-  
-  // Validar tamaño (máximo 50MB)
-  const maxSize = 50 * 1024 * 1024 // 50MB
-  if (file.size > maxSize) {
-    showNotification('El archivo es demasiado grande. Máximo 50MB permitido.', 'error')
-    event.target.value = ''
-    selectedFile.value = null
-    return
-  }
-  
-  selectedFile.value = file
-  showNotification('Archivo seleccionado correctamente', 'success')
+  await applyFilters(filters)
 }
 
-const handleUpload = async () => {
-  if (!selectedFile.value) {
-    showNotification('Selecciona un archivo primero', 'error')
-    return
+const refreshHistory = async () => {
+  await refresh()
+}
+
+const clearFilters = async () => {
+  searchQuery.value = ''
+  filterType.value = 'all'
+  sortBy.value = 'newest'
+  
+  await applyFilters({})
+}
+
+const goToPage = async (page: number) => {
+  if (page >= 1 && page <= totalPages.value) {
+    await loadPage(page)
   }
-  
-  uploading.value = true
-  uploadProgress.value = 0
-  
+}
+
+const getGlobalIndex = (localIndex: number): number => {
+  return pagination.value.startIndex + localIndex - 1
+}
+
+// Handlers para eventos del componente item
+const handleSaveItem = async (item: TranscriptionItem) => {
+  loadingItems.value.add(item.id)
   try {
-    // Crear FormData
-    const formData = new FormData()
-    formData.append('audio', selectedFile.value)
-    
-    // Simular progreso
-    const progressInterval = setInterval(() => {
-      if (uploadProgress.value < 90) {
-        uploadProgress.value += Math.random() * 10
-      }
-    }, 200)
-    
-    // Obtener token de autenticación
-    const token = localStorage.getItem('auth-token')
-    
-    // Configuración del backend
-    const config = useRuntimeConfig()
-    const backendUrl = config.public.backendUrl
-    
-    // Subir archivo
-    const response = await $fetch(`${backendUrl}/api/transcribe`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      body: formData
-    })
-    
-    // Completar progreso
-    clearInterval(progressInterval)
-    uploadProgress.value = 100
-    
-    showNotification('¡Archivo subido y transcrito exitosamente!', 'success')
-    
-    // Limpiar formulario
-    selectedFile.value = null
-    fileInput.value.value = ''
-    uploadProgress.value = 0
-    
-    // Recargar transcripciones
-    await loadTranscriptions()
-    
-  } catch (error) {
-    console.error('Upload failed:', error)
-    showNotification('Error al subir el archivo. Inténtalo de nuevo.', 'error')
+    const success = await transcriptionHistory.saveExistingItem(item)
+    if (success) {
+      showNotification('Transcripción guardada exitosamente', 'success')
+    }
   } finally {
-    uploading.value = false
-    uploadProgress.value = 0
+    loadingItems.value.delete(item.id)
   }
 }
 
-const loadTranscriptions = async () => {
-  loadingHistory.value = true
-  
-  try {
-    const token = localStorage.getItem('auth-token')
-    
-    // Configuración del backend
-    const config = useRuntimeConfig()
-    const backendUrl = config.public.backendUrl
-    
-    const response = await $fetch(`${backendUrl}/api/history`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-    
-    transcriptions.value = Array.isArray(response) ? response : []
-    
-  } catch (error) {
-    console.error('Failed to load transcriptions:', error)
-    showNotification('Error al cargar las transcripciones', 'error')
-    transcriptions.value = []
-  } finally {
-    loadingHistory.value = false
-  }
-}
-
-
-const copyToClipboard = async (text) => {
-  if (!text) return
-  
+const handleCopyText = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text)
     showNotification('Texto copiado al portapapeles', 'success')
   } catch (error) {
-    console.error('Copy failed:', error)
     showNotification('Error al copiar el texto', 'error')
   }
 }
 
-const downloadTranscription = (transcription) => {
-  if (!transcription.text) {
+const handleDownloadItem = (item: TranscriptionItem) => {
+  if (!item.text) {
     showNotification('No hay texto para descargar', 'error')
     return
   }
   
-  const blob = new Blob([transcription.text], { type: 'text/plain' })
+  const blob = new Blob([item.text], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `transcripcion_${transcription.filename || 'audio'}.txt`
+  a.download = `${item.filename || `transcripcion_${new Date().toISOString().slice(0, 10)}`}.txt`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -241,461 +446,429 @@ const downloadTranscription = (transcription) => {
   showNotification('Transcripción descargada', 'success')
 }
 
-const showNotification = (message, type = 'info') => {
+const handleDownloadJsonItem = (item: any) => {
+  const blob = new Blob([JSON.stringify(item, null, 2)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${item.filename || `transcripcion_${new Date().toISOString().slice(0, 10)}`}.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  
+  showNotification('Datos JSON descargados', 'success')
+}
+
+const handleShareItem = async (item: TranscriptionItem) => {
+  if (!item._id) {
+    showNotification('Solo se pueden compartir transcripciones guardadas', 'error')
+    return
+  }
+  
+  try {
+    const shareUrl = `${window.location.origin}/transcriptions/${item._id}`
+    await navigator.clipboard.writeText(shareUrl)
+    showNotification('Enlace copiado al portapapeles', 'success')
+  } catch (error) {
+    showNotification('Error al generar enlace', 'error')
+  }
+}
+
+const handleUpdateItem = async (item: TranscriptionItem) => {
+  if (!item._id) {
+    showNotification('Solo se pueden actualizar transcripciones guardadas', 'error')
+    return
+  }
+  
+  loadingItems.value.add(item.id)
+  try {
+    await refresh()
+    showNotification('Transcripción actualizada', 'success')
+  } catch (error) {
+    showNotification('Error al actualizar', 'error')
+  } finally {
+    loadingItems.value.delete(item.id)
+  }
+}
+
+const handleDuplicateItem = (item: TranscriptionItem) => {
+  if (!item.text) {
+    showNotification('No se puede duplicar una transcripción vacía', 'error')
+    return
+  }
+  
+  const duplicatedItem = transcriptionHistory.addLocalTranscription(
+    item.text,
+    new Date(),
+    new Date()
+  )
+  
+  showNotification('Transcripción duplicada como temporal', 'success')
+  
+  // Recargar la página actual para mostrar el duplicado
+  refresh()
+}
+
+const handleDeleteItem = async (id: string) => {
+  if (confirm('¿Estás seguro de que quieres eliminar esta transcripción?')) {
+    const item = transcriptionHistory.findById(id)
+    
+    if (item?._id) {
+      // Es una transcripción del servidor
+      const success = await transcriptionHistory.deleteServerItem(id)
+      if (success) {
+        showNotification('Transcripción eliminada del servidor', 'success')
+      }
+    } else {
+      // Es una transcripción temporal
+      const success = transcriptionHistory.deleteLocalItem(id)
+      if (success) {
+        showNotification('Transcripción temporal eliminada', 'success')
+      }
+    }
+  }
+}
+
+// Acciones en lote
+const exportAllToFile = (format: 'txt' | 'json' | 'csv' = 'txt') => {
+  const exportData = transcriptionHistory.exportToFormat(format)
+  
+  if (!exportData) {
+    return // El error ya se maneja en el composable
+  }
+  
+  const blob = new Blob([exportData.content], { type: exportData.mimeType })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = exportData.filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  
+  showNotification(`Historial exportado como ${format.toUpperCase()}`, 'success')
+}
+
+const saveAllTemporary = async () => {
+  const temporaryItems = transcriptionHistory.getTemporaryTranscriptions()
+  if (temporaryItems.length === 0) {
+    showNotification('No hay transcripciones temporales para guardar', 'info')
+    return
+  }
+  
+  isSavingAll.value = true
+  let savedCount = 0
+  
+  try {
+    for (const item of temporaryItems) {
+      const success = await transcriptionHistory.saveExistingItem(item)
+      if (success) savedCount++
+    }
+    
+    showNotification(`Se guardaron ${savedCount} de ${temporaryItems.length} transcripciones`, 'success')
+  } finally {
+    isSavingAll.value = false
+  }
+}
+
+const clearLocalHistory = async () => {
+  if (confirm('¿Estás seguro de que quieres limpiar el historial local? Las transcripciones guardadas se mantendrán.')) {
+    const success = await transcriptionHistory.clearLocalHistory()
+    if (success) {
+      showNotification('Historial local limpiado', 'success')
+    }
+  }
+}
+
+const showNotification = (message: string, type: string = 'info') => {
   notification.value = { message, type }
   setTimeout(() => {
     notification.value = null
   }, 4000)
 }
 
-const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-const formatDate = (dateString) => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
+// Lifecycle
+onMounted(() => {
+  // El historial se carga automáticamente por el composable
+})
 </script>
 
 <style scoped>
-.dashboard {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+.history-container {
+  @apply min-h-screen bg-gradient-to-br from-gray-50 to-gray-100;
 }
 
-.dashboard-header {
-  background: white;
-  padding: 1.5rem 0;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
+.history-header {
+  @apply bg-white shadow-lg border-b border-gray-200;
 }
 
 .header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  @apply max-w-7xl mx-auto px-4 py-6 flex justify-between items-center;
 }
 
-.dashboard-header h1 {
-  color: #333;
-  margin: 0;
-  font-size: 2rem;
+.history-title {
+  @apply text-3xl font-bold text-gray-800 flex items-center gap-3;
 }
 
-.user-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+.count-badge {
+  @apply bg-blue-500 text-white text-sm px-3 py-1 rounded-full font-medium;
 }
 
-.welcome-text {
-  color: #666;
-  font-weight: 500;
-}
-
-.logout-btn {
-  padding: 0.5rem 1rem;
-  background: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background 0.2s;
-}
-
-.logout-btn:hover {
-  background: #c82333;
-}
-
-.dashboard-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-.section-card {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-  height: fit-content;
-}
-
-.section-card h2 {
-  margin-top: 0;
-  color: #333;
-  font-size: 1.5rem;
-}
-
-.section-description {
-  color: #666;
-  margin-bottom: 2rem;
-}
-
-.upload-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.file-input-container {
-  position: relative;
-}
-
-.file-input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.file-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  border: 2px dashed #ddd;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  background: #fafafa;
-}
-
-.file-label:hover {
-  border-color: #007bff;
-  background: #f8f9ff;
-}
-
-.file-label-text {
-  color: #666;
-  font-size: 1.1rem;
-}
-
-.file-selected {
-  color: #28a745;
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
-.file-info {
-  background: #f8f9fa;
-  padding: 1rem;
-  border-radius: 6px;
-  border-left: 4px solid #007bff;
-}
-
-.file-info p {
-  margin: 0.25rem 0;
-  color: #555;
-}
-
-.upload-btn {
-  padding: 1rem 2rem;
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.upload-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
-
-.upload-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.progress-container {
-  margin-top: 1rem;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  background: #e9ecef;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #28a745, #34ce57);
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  text-align: center;
-  margin-top: 0.5rem;
-  color: #666;
-  font-weight: 500;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.refresh-btn {
-  padding: 0.5rem 1rem;
-  background: #6c757d;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.refresh-btn:hover:not(:disabled) {
-  background: #5a6268;
-}
-
-.loading-state, .empty-state {
-  text-align: center;
-  padding: 3rem 1rem;
-  color: #666;
-}
-
-.empty-subtitle {
-  font-size: 0.9rem;
-  margin-top: 0.5rem;
-}
-
-.transcriptions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.transcription-item {
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  padding: 1.5rem;
-  background: #fafafa;
-}
-
-.transcription-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.transcription-header h3 {
-  margin: 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.transcription-date {
-  color: #888;
-  font-size: 0.9rem;
-}
-
-.transcription-text {
-  background: white;
-  padding: 1rem;
-  border-radius: 6px;
-  margin: 1rem 0;
-  font-style: italic;
-  color: #444;
-  border-left: 4px solid #007bff;
-}
-
-.no-transcription {
-  color: #dc3545;
-  font-style: italic;
-  margin: 1rem 0;
-}
-
-.transcription-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
+.header-actions {
+  @apply flex gap-3;
 }
 
 .action-btn {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
+  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 border border-transparent cursor-pointer flex items-center gap-2;
 }
 
-.copy-btn {
-  background: #17a2b8;
-  color: white;
+.refresh-btn {
+  @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
 }
 
-.copy-btn:hover:not(:disabled) {
-  background: #138496;
+.filter-btn {
+  @apply bg-blue-50 text-blue-700 hover:bg-blue-100;
 }
 
-.copy-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
+.filter-btn.active {
+  @apply bg-blue-500 text-white;
 }
 
-.download-btn {
-  background: #28a745;
-  color: white;
+.stats-bar {
+  @apply bg-gray-50 border-t border-gray-200 px-4 py-4;
 }
 
-.download-btn:hover {
-  background: #218838;
+.stats-bar {
+  @apply flex flex-wrap gap-4 max-w-7xl mx-auto;
+}
+
+.stat-item {
+  @apply flex items-center gap-3 bg-white px-4 py-3 rounded-lg shadow-sm;
+}
+
+.stat-icon {
+  @apply text-2xl;
+}
+
+.stat-info {
+  @apply flex flex-col;
+}
+
+.stat-number {
+  @apply text-xl font-bold text-gray-800;
+}
+
+.stat-label {
+  @apply text-sm text-gray-600;
+}
+
+.filters-panel {
+  @apply bg-blue-50 border-t border-blue-200 px-4 py-4;
+}
+
+.filters-row {
+  @apply max-w-7xl mx-auto flex flex-wrap gap-4 items-end;
+}
+
+.filter-group {
+  @apply flex flex-col gap-1;
+}
+
+.filter-label {
+  @apply text-sm font-medium text-gray-700;
+}
+
+.filter-input, .filter-select {
+  @apply px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+}
+
+.clear-filters-btn {
+  @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+}
+
+.history-content {
+  @apply max-w-7xl mx-auto px-4 py-8;
+}
+
+.loading-state, .empty-state {
+  @apply text-center py-16;
+}
+
+.loading-spinner {
+  @apply text-4xl mb-4;
+}
+
+.empty-icon {
+  @apply text-6xl mb-4;
+}
+
+.empty-state h3 {
+  @apply text-xl font-semibold text-gray-800 mb-2;
+}
+
+.empty-subtitle {
+  @apply text-gray-600 mb-6;
+}
+
+.empty-actions {
+  @apply flex gap-4 justify-center;
+}
+
+.primary-btn {
+  @apply bg-blue-500 text-white hover:bg-blue-600;
+}
+
+.secondary-btn {
+  @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+}
+
+.transcriptions-grid {
+  @apply grid gap-6 mb-8;
+}
+
+.pagination-container {
+  @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+}
+
+.pagination-info {
+  @apply text-sm text-gray-600 mb-4 text-center;
+}
+
+.pagination-controls {
+  @apply flex justify-center items-center gap-2 mb-4;
+}
+
+.pagination-btn {
+  @apply px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors cursor-pointer;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  @apply bg-gray-50;
+}
+
+.pagination-btn:disabled {
+  @apply bg-gray-100 text-gray-400 cursor-not-allowed;
+}
+
+.page-number.active {
+  @apply bg-blue-500 text-white border-blue-500;
+}
+
+.pagination-settings {
+  @apply flex justify-center items-center gap-2;
+}
+
+.pagination-label {
+  @apply text-sm font-medium text-gray-700;
+}
+
+.pagination-select {
+  @apply px-2 py-1 border border-gray-300 rounded text-sm;
+}
+
+.bulk-actions {
+  @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-wrap justify-between items-center gap-4;
+}
+
+.bulk-info {
+  @apply flex items-center gap-2 text-gray-700 font-medium;
+}
+
+.bulk-icon {
+  @apply text-xl;
+}
+
+.bulk-buttons {
+  @apply flex gap-3;
+}
+
+.export-group {
+  @apply flex gap-2 flex-wrap;
+}
+
+.export-btn {
+  @apply bg-green-50 text-green-700 hover:bg-green-100;
+}
+
+.export-json-btn {
+  @apply bg-indigo-50 text-indigo-700 hover:bg-indigo-100;
+}
+
+.export-csv-btn {
+  @apply bg-orange-50 text-orange-700 hover:bg-orange-100;
+}
+
+.save-all-btn {
+  @apply bg-purple-50 text-purple-700 hover:bg-purple-100;
+}
+
+.danger-btn {
+  @apply bg-red-50 text-red-700 hover:bg-red-100;
 }
 
 .notification {
-  position: fixed;
-  top: 2rem;
-  right: 2rem;
-  padding: 1rem 1.5rem;
-  border-radius: 6px;
-  color: white;
-  font-weight: 500;
-  z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  @apply fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 font-medium text-white;
 }
 
 .notification.success {
-  background: #28a745;
+  @apply bg-green-500;
 }
 
 .notification.error {
-  background: #dc3545;
+  @apply bg-red-500;
 }
 
 .notification.info {
-  background: #17a2b8;
+  @apply bg-blue-500;
 }
 
+/* Responsive */
 @media (max-width: 768px) {
-  .dashboard-main {
-    grid-template-columns: 1fr;
-    padding: 0 0.5rem;
-  }
-  
   .header-content {
-    flex-direction: column;
-    gap: 1rem;
-    text-align: center;
+    @apply flex-col gap-4;
   }
   
-  .user-actions {
-    flex-direction: column;
+  .stats-bar {
+    @apply grid grid-cols-2 gap-3;
   }
   
-  .section-card {
-    padding: 1.5rem;
+  .filters-row {
+    @apply flex-col items-stretch;
   }
   
-  .transcription-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
+  .transcriptions-grid {
+    @apply gap-4;
   }
   
-  .transcription-actions {
-    flex-direction: column;
+  .pagination-controls {
+    @apply flex-wrap;
   }
   
-  .notification {
-    top: 1rem;
-    right: 1rem;
-    left: 1rem;
+  .bulk-actions {
+    @apply flex-col;
+  }
+  
+  .bulk-buttons {
+    @apply w-full justify-center;
+  }
+  
+  .export-group {
+    @apply w-full justify-center;
   }
 }
 
-/* Estilos para la sección de transcripción en tiempo real */
-.realtime-preview {
-  margin-bottom: 3rem;
-}
-
-.preview-features {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin: 1.5rem 0;
-}
-
-.feature-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border-radius: 10px;
-  font-weight: 500;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
-}
-
-.feature-icon {
-  font-size: 1.5rem;
-}
-
-.preview-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  align-items: center;
-}
-
-.realtime-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem 2rem;
-  background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
-  color: white;
-  text-decoration: none;
-  border-radius: 15px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
-  transition: all 0.3s ease;
-}
-
-.realtime-link:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(255, 107, 107, 0.4);
-}
-
-.inline-preview {
-  width: 100%;
-  max-width: 600px;
-}
-
-@media (max-width: 768px) {
-  .preview-features {
-    grid-template-columns: 1fr;
+@media (max-width: 640px) {
+  .stats-bar {
+    @apply grid-cols-1;
+  }
+  
+  .history-content {
+    @apply px-2;
   }
 }
 </style>
+  
+  
   

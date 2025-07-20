@@ -97,7 +97,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import TranscriptionProgress from './TranscriptionProgress.vue'
+import TranscriptionProgress from '~/components/transcription/TranscriptionProgress.vue'
 import { 
   FolderIcon, 
   DocumentIcon, 
@@ -183,8 +183,10 @@ const clearSelection = () => {
 const validateAudioFile = (file: File): { isValid: boolean; error?: string } => {
   // Validar tipo
   const validTypes = ['audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/m4a']
-  const isValidType = validTypes.some(type => file.type && file.type.includes(type.split('/')[1])) ||
-    (file.name && file.name.match(/\.(mp3|wav|m4a|aac|ogg)$/i))
+  const isValidType = validTypes.some(type => {
+    const subtype = type.split('/')[1]
+    return subtype && file.type?.includes(subtype)
+  }) || (file.name && file.name.match(/\.(mp3|wav|m4a|aac|ogg)$/i))
 
   if (!isValidType) {
     return {

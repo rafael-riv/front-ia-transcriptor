@@ -2,8 +2,14 @@
   <div class="modal-overlay" @click="handleOverlayClick">
     <div class="modal-container" @click.stop>
       <div class="modal-header" :class="{ 'danger': danger }">
-        <h3 class="modal-title">{{ title }}</h3>
-        <button @click="$emit('cancel')" class="modal-close">✕</button>
+        <h3 class="modal-title">
+          <ExclamationTriangleIcon v-if="danger" class="w-6 h-6 inline mr-2 text-red-600" />
+          <QuestionMarkCircleIcon v-else class="w-6 h-6 inline mr-2 text-blue-600" />
+          {{ title }}
+        </h3>
+        <button @click="$emit('cancel')" class="modal-close">
+          <XMarkIcon class="w-5 h-5" />
+        </button>
       </div>
       
       <div class="modal-body">
@@ -32,6 +38,8 @@
 </template>
 
 <script setup lang="ts">
+import { ExclamationTriangleIcon, QuestionMarkCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+
 interface Props {
   title: string
   message: string

@@ -1,8 +1,7 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { useUserSession } from '~/composables/useUserSession'
-
-
+import { MicrophoneIcon } from '@heroicons/vue/24/outline'
 const route = useRoute()
 const router = useRouter()
 // Composables
@@ -47,7 +46,10 @@ const handleLogout = async () => {
 <template>
   <header class="w-full mb-6 ">
     <div class="bg-white flex items-center p-4 justify-between">
-      <h1>🎤 Scripter.ai</h1>
+      <h1 class="flex items-center gap-2">
+        <MicrophoneIcon class="w-6 h-6 inline text-blue-500" />
+        Scripter.ai
+      </h1>
       <div class="bg-white rounded-b-lg p-2 md:p-4 flex gap-2 md:gap-4 justify-start md:ml-32 max-w-fit">
         <button v-for="section in ['Dashboard', 'Historial', 'Grabar', 'Subir Archivo']" :key="section"
           :class="['header-section  p-1 md:p-2', { active: currentSection === section }]" @click="setSection(section)"

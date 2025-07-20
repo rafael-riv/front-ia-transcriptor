@@ -1,7 +1,10 @@
 <template>
   <div class="live-transcription-container">
     <header class="transcription-header">
-      <h2>🎙️ Transcripción en Tiempo Real</h2>
+      <h2>
+        <MicrophoneIcon class="w-8 h-8 inline mr-2" />
+        Transcripción en Tiempo Real
+      </h2>
       <p class="header-description">
         Utiliza IA avanzada para transcribir tu voz en tiempo real
       </p>
@@ -37,23 +40,27 @@
     <section class="history-info-section">
       <div class="info-card">
         <div class="info-content">
-          <h3>📋 ¿Quieres revisar tus transcripciones anteriores?</h3>
+          <h3>
+            <ClipboardDocumentListIcon class="w-6 h-6 inline mr-2" />
+            ¿Quieres revisar tus transcripciones anteriores?
+          </h3>
           <p>Accede al historial completo para ver, gestionar y descargar todas tus transcripciones guardadas.</p>
           
           <div class="info-actions">
             <NuxtLink to="/history" class="history-link">
-              📋 Ver Historial Completo
+              <ClipboardDocumentListIcon class="w-4 h-4 mr-1" />
+              Ver Historial Completo
             </NuxtLink>
           </div>
         </div>
         
         <div class="info-stats">
           <div class="stat-item">
-            <span class="stat-icon">💾</span>
+            <ServerIcon class="stat-icon w-5 h-5" />
             <span class="stat-label">Solo se guardan las transcripciones que elijas guardar</span>
           </div>
           <div class="stat-item">
-            <span class="stat-icon">🔍</span>
+            <MagnifyingGlassIcon class="stat-icon w-5 h-5" />
             <span class="stat-label">Busca y organiza tus transcripciones fácilmente</span>
           </div>
         </div>
@@ -72,6 +79,12 @@ import { ref } from 'vue'
 import { useRealTimeTranscription } from '~/composables/useRealTimeTranscription'
 import TranscriptionControls from './TranscriptionControls.vue'
 import LiveTranscriptDisplay from './LiveTranscriptDisplay.vue'
+import { 
+  MicrophoneIcon,
+  ClipboardDocumentListIcon,
+  ServerIcon,
+  MagnifyingGlassIcon
+} from '@heroicons/vue/24/outline'
 
 // Middleware para proteger la ruta
 definePageMeta({

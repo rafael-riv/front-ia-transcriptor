@@ -1,14 +1,20 @@
 <template>
   <div class="transcription-actions">
     <div class="actions-header">
-      <h4 class="actions-title">🛠️ Acciones Disponibles</h4>
+      <h4 class="actions-title">
+        <WrenchScrewdriverIcon class="w-5 h-5 inline mr-2" />
+        Acciones Disponibles
+      </h4>
       <span class="actions-subtitle">Elige qué hacer con tu transcripción</span>
     </div>
 
     <div class="actions-content">
       <!-- Acciones Principales -->
       <div class="action-group primary-group">
-        <h5 class="group-title">🎯 Acciones Principales</h5>
+        <h5 class="group-title">
+          <FireIcon class="w-4 h-4 inline mr-1" />
+          Acciones Principales
+        </h5>
         <div class="actions-grid">
           <button 
             @click="$emit('save', transcription)"
@@ -17,10 +23,12 @@
             title="Guardar transcripción permanentemente en el historial"
           >
             <span v-if="isLoading" class="btn-content">
-              ⏳ Guardando...
+              <ArrowPathIcon class="w-4 h-4 animate-spin mr-1" />
+              Guardando...
             </span>
             <span v-else class="btn-content">
-              💾 Guardar en Historial
+              <ServerIcon class="w-4 h-4 mr-1" />
+              Guardar en Historial
             </span>
           </button>
 
@@ -30,7 +38,8 @@
             title="Descargar como archivo de texto"
           >
             <span class="btn-content">
-              📁 Descargar TXT
+              <FolderArrowDownIcon class="w-4 h-4 mr-1" />
+              Descargar TXT
             </span>
           </button>
 
@@ -41,7 +50,8 @@
             title="Copiar texto al portapapeles"
           >
             <span class="btn-content">
-              📋 Copiar Texto
+              <ClipboardDocumentIcon class="w-4 h-4 mr-1" />
+              Copiar Texto
             </span>
           </button>
         </div>
@@ -49,7 +59,10 @@
 
       <!-- Acciones Secundarias -->
       <div class="action-group secondary-group">
-        <h5 class="group-title">⚙️ Opciones Adicionales</h5>
+        <h5 class="group-title">
+          <CogIcon class="w-4 h-4 inline mr-1" />
+          Opciones Adicionales
+        </h5>
         <div class="actions-grid secondary">
           <button 
             @click="$emit('download-json', transcription)"
@@ -57,7 +70,8 @@
             title="Descargar con metadatos completos en formato JSON"
           >
             <span class="btn-content">
-              📋 Descargar JSON
+              <CodeBracketIcon class="w-4 h-4 mr-1" />
+              Descargar JSON
             </span>
           </button>
 
@@ -67,7 +81,8 @@
             title="Compartir transcripción usando Web Share API"
           >
             <span class="btn-content">
-              🔗 Compartir
+              <ShareIcon class="w-4 h-4 mr-1" />
+              Compartir
             </span>
           </button>
 
@@ -77,7 +92,8 @@
             title="Eliminar esta transcripción"
           >
             <span class="btn-content">
-              🗑️ Eliminar
+              <TrashIcon class="w-4 h-4 mr-1" />
+              Eliminar
             </span>
           </button>
         </div>
@@ -87,7 +103,7 @@
     <!-- Información de Ayuda -->
     <div class="actions-info">
       <div class="info-item">
-        <span class="info-icon">💡</span>
+        <LightBulbIcon class="info-icon w-5 h-5" />
         <span class="info-text">
           <strong>Consejo:</strong> Guarda tu transcripción para acceder a ella desde cualquier dispositivo
         </span>
@@ -98,6 +114,19 @@
 
 <script setup lang="ts">
 import type { TranscriptionData } from './TranscriptionPreview.vue'
+import { 
+  WrenchScrewdriverIcon,
+  FireIcon,
+  ArrowPathIcon,
+  ServerIcon,
+  FolderArrowDownIcon,
+  ClipboardDocumentIcon,
+  CogIcon,
+  CodeBracketIcon,
+  ShareIcon,
+  TrashIcon,
+  LightBulbIcon
+} from '@heroicons/vue/24/outline'
 
 interface Props {
   transcription: TranscriptionData
@@ -209,7 +238,7 @@ defineEmits<Emits>()
 }
 
 .info-icon {
-  @apply text-lg;
+  @apply flex-shrink-0 text-blue-500;
 }
 
 .info-text {

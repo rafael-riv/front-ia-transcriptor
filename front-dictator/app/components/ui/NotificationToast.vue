@@ -5,7 +5,7 @@
     @click="handleClick"
   >
     <div class="toast-content">
-      <span class="toast-icon">{{ iconByType }}</span>
+      <component :is="iconByType" class="toast-icon w-5 h-5 flex-shrink-0" />
       <span class="toast-message">{{ message }}</span>
     </div>
     
@@ -14,13 +14,20 @@
       class="toast-close"
       title="Cerrar notificación"
     >
-      ✕
+      <XMarkIcon class="w-4 h-4" />
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { 
+  CheckCircleIcon,
+  XCircleIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
+  XMarkIcon
+} from '@heroicons/vue/24/outline'
 
 interface Props {
   message: string
@@ -46,13 +53,13 @@ const isClosing = ref(false)
 const typeClass = computed(() => `toast-${props.type}`)
 
 const iconByType = computed(() => {
-  const icons = {
-    success: '✅',
-    error: '❌',
-    warning: '⚠️',
-    info: 'ℹ️'
+  const iconComponents = {
+    success: CheckCircleIcon,
+    error: XCircleIcon,
+    warning: ExclamationTriangleIcon,
+    info: InformationCircleIcon
   }
-  return icons[props.type]
+  return iconComponents[props.type]
 })
 
 const closeToast = () => {
@@ -93,7 +100,7 @@ onMounted(() => {
 }
 
 .toast-icon {
-  @apply text-lg flex-shrink-0;
+  @apply flex-shrink-0;
 }
 
 .toast-message {
@@ -113,12 +120,20 @@ onMounted(() => {
   @apply text-green-800;
 }
 
+.toast-success .toast-icon {
+  @apply text-green-600;
+}
+
 .toast-error {
   @apply border-red-500 bg-red-50;
 }
 
 .toast-error .toast-message {
   @apply text-red-800;
+}
+
+.toast-error .toast-icon {
+  @apply text-red-600;
 }
 
 .toast-warning {
@@ -129,12 +144,20 @@ onMounted(() => {
   @apply text-yellow-800;
 }
 
+.toast-warning .toast-icon {
+  @apply text-yellow-600;
+}
+
 .toast-info {
   @apply border-blue-500 bg-blue-50;
 }
 
 .toast-info .toast-message {
   @apply text-blue-800;
+}
+
+.toast-info .toast-icon {
+  @apply text-blue-600;
 }
 
 /* Animaciones */

@@ -4,7 +4,8 @@
     <div class="history-header">
       <div class="header-content">
         <h1 class="history-title">
-          📋 Historial de Transcripciones
+          <ClipboardDocumentListIcon class="w-8 h-8 inline mr-2" />
+          Historial de Transcripciones
           <span v-if="transcriptionHistory.count() > 0" class="count-badge">
             {{ transcriptionHistory.count() }}
           </span>
@@ -17,8 +18,8 @@
             class="action-btn refresh-btn"
             title="Actualizar historial"
           >
-            <span v-if="isLoading">⏳</span>
-            <span v-else>🔄</span>
+            <ArrowPathIcon v-if="isLoading" class="w-4 h-4 mr-1 animate-spin" />
+            <ArrowPathIcon v-else class="w-4 h-4 mr-1" />
             Actualizar
           </button>
           
@@ -28,7 +29,8 @@
             :class="{ active: showFilters }"
             title="Mostrar/ocultar filtros"
           >
-            🔍 Filtros
+            <MagnifyingGlassIcon class="w-4 h-4 mr-1" />
+            Filtros
             </button>
         </div>
       </div>
@@ -36,7 +38,7 @@
       <!-- Estadísticas Rápidas -->
       <div class="stats-bar">
         <div class="stat-item">
-          <span class="stat-icon">📄</span>
+          <DocumentIcon class="stat-icon w-6 h-6" />
           <div class="stat-info">
             <span class="stat-number">{{ statistics.totalDocuments }}</span>
             <span class="stat-label">Total</span>
@@ -44,7 +46,7 @@
         </div>
         
         <div class="stat-item">
-          <span class="stat-icon">📝</span>
+          <PencilIcon class="stat-icon w-6 h-6" />
           <div class="stat-info">
             <span class="stat-number">{{ transcriptionHistory.getTemporaryTranscriptions().length }}</span>
             <span class="stat-label">Temporales</span>
@@ -52,7 +54,7 @@
         </div>
         
         <div class="stat-item">
-          <span class="stat-icon">📊</span>
+          <ChartBarIcon class="stat-icon w-6 h-6" />
           <div class="stat-info">
             <span class="stat-number">{{ totalWords }}</span>
             <span class="stat-label">Palabras</span>
@@ -60,7 +62,7 @@
         </div>
         
         <div class="stat-item">
-          <span class="stat-icon">🔤</span>
+          <LanguageIcon class="stat-icon w-6 h-6" />
           <div class="stat-info">
             <span class="stat-number">{{ totalCharacters }}</span>
             <span class="stat-label">Caracteres</span>
@@ -68,7 +70,7 @@
         </div>
         
         <div class="stat-item">
-          <span class="stat-icon">📋</span>
+          <CalculatorIcon class="stat-icon w-6 h-6" />
           <div class="stat-info">
             <span class="stat-number">{{ statistics.avgWordsPerDoc }}</span>
             <span class="stat-label">Promedio</span>
@@ -80,7 +82,10 @@
       <div v-if="showFilters" class="filters-panel">
         <div class="filters-row">
           <div class="filter-group">
-            <label class="filter-label">🔍 Buscar:</label>
+            <label class="filter-label">
+              <MagnifyingGlassIcon class="w-4 h-4 inline mr-1" />
+              Buscar:
+            </label>
             <input
               v-model="searchQuery"
               type="text"
@@ -90,7 +95,10 @@
           </div>
           
           <div class="filter-group">
-            <label class="filter-label">📂 Período:</label>
+            <label class="filter-label">
+              <FolderIcon class="w-4 h-4 inline mr-1" />
+              Período:
+            </label>
             <select v-model="filterType" class="filter-select">
               <option value="all">Todas</option>
               <option value="recent">Recientes (7 días)</option>
@@ -99,7 +107,10 @@
           </div>
           
           <div class="filter-group">
-            <label class="filter-label">📅 Ordenar:</label>
+            <label class="filter-label">
+              <CalendarIcon class="w-4 h-4 inline mr-1" />
+              Ordenar:
+            </label>
             <select v-model="sortBy" class="filter-select">
               <option value="newest">Más recientes</option>
               <option value="oldest">Más antiguas</option>
@@ -113,7 +124,8 @@
             class="action-btn clear-filters-btn"
             title="Limpiar filtros"
           >
-            ✨ Limpiar
+            <SparklesIcon class="w-4 h-4 mr-1" />
+            Limpiar
           </button>
         </div>
       </div>
@@ -123,13 +135,13 @@
     <div class="history-content">
       <!-- Loading State -->
       <div v-if="isLoading" class="loading-state">
-        <div class="loading-spinner">⏳</div>
+        <ArrowPathIcon class="loading-spinner w-12 h-12 animate-spin text-blue-500" />
         <p>Cargando transcripciones...</p>
       </div>
 
       <!-- Empty State -->
       <div v-else-if="transcriptions.length === 0" class="empty-state">
-        <div class="empty-icon">📭</div>
+        <InboxIcon class="empty-icon w-20 h-20 text-gray-400" />
         <h3>{{ searchQuery ? 'No se encontraron resultados' : 'No hay transcripciones aún' }}</h3>
         <p v-if="searchQuery" class="empty-subtitle">
           Intenta con otros términos de búsqueda
@@ -140,10 +152,12 @@
         
         <div class="empty-actions">
           <NuxtLink to="/realtime" class="action-btn primary-btn">
-            🎙️ Transcripción en Vivo
+            <MicrophoneIcon class="w-4 h-4 mr-1" />
+            Transcripción en Vivo
           </NuxtLink>
           <NuxtLink to="/transcription" class="action-btn secondary-btn">
-            📁 Subir Audio
+            <FolderIcon class="w-4 h-4 mr-1" />
+            Subir Audio
           </NuxtLink>
         </div>
       </div>
@@ -180,7 +194,7 @@
             class="pagination-btn"
             title="Primera página"
           >
-            ⏮️
+            <ChevronDoubleLeftIcon class="w-4 h-4" />
           </button>
           
           <button 
@@ -189,7 +203,7 @@
             class="pagination-btn"
             title="Página anterior"
           >
-            ◀️
+            <ChevronLeftIcon class="w-4 h-4" />
           </button>
           
           <div class="page-numbers">
@@ -210,7 +224,7 @@
             class="pagination-btn"
             title="Página siguiente"
           >
-            ▶️
+            <ChevronRightIcon class="w-4 h-4" />
           </button>
           
           <button 
@@ -219,7 +233,7 @@
             class="pagination-btn"
             title="Última página"
           >
-            ⏭️
+            <ChevronDoubleRightIcon class="w-4 h-4" />
           </button>
         </div>
         
@@ -237,7 +251,7 @@
       <!-- Acciones de Lote -->
       <div v-if="transcriptionHistory.count() > 0" class="bulk-actions">
         <div class="bulk-info">
-          <span class="bulk-icon">🛠️</span>
+          <WrenchScrewdriverIcon class="bulk-icon w-6 h-6" />
           <span class="bulk-text">Acciones en lote:</span>
               </div>
               
@@ -248,7 +262,8 @@
               class="action-btn export-btn"
               title="Exportar como archivo de texto"
             >
-              📄 Exportar TXT
+              <DocumentIcon class="w-4 h-4 mr-1" />
+              Exportar TXT
             </button>
             
             <button 
@@ -256,7 +271,8 @@
               class="action-btn export-json-btn"
               title="Exportar con metadatos JSON"
             >
-              📋 Exportar JSON
+              <CodeBracketIcon class="w-4 h-4 mr-1" />
+              Exportar JSON
             </button>
             
             <button 
@@ -264,7 +280,8 @@
               class="action-btn export-csv-btn"
               title="Exportar como hoja de cálculo"
             >
-              📊 Exportar CSV
+              <TableCellsIcon class="w-4 h-4 mr-1" />
+              Exportar CSV
             </button>
               </div>
               
@@ -275,8 +292,8 @@
             :disabled="isSavingAll"
             title="Guardar todas las transcripciones temporales"
           >
-            <span v-if="isSavingAll">⏳</span>
-            <span v-else>💾</span>
+            <ArrowPathIcon v-if="isSavingAll" class="w-4 h-4 mr-1 animate-spin" />
+            <ServerIcon v-else class="w-4 h-4 mr-1" />
             Guardar Temporales
                 </button>
           
@@ -285,7 +302,8 @@
             class="action-btn danger-btn"
             title="Limpiar historial local (mantiene las guardadas)"
                 >
-            🗑️ Limpiar Local
+            <TrashIcon class="w-4 h-4 mr-1" />
+            Limpiar Local
                 </button>
               </div>
             </div>
@@ -302,6 +320,30 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useTranscriptionHistory, type TranscriptionItem, type FilterOptions } from '~/composables/useTranscriptionHistory'
 import TranscriptionHistoryItem from '~/components/transcription/TranscriptionHistoryItem.vue'
+import { 
+  ClipboardDocumentListIcon,
+  ArrowPathIcon,
+  MagnifyingGlassIcon,
+  DocumentIcon,
+  PencilIcon,
+  ChartBarIcon,
+  LanguageIcon,
+  CalculatorIcon,
+  FolderIcon,
+  CalendarIcon,
+  SparklesIcon,
+  InboxIcon,
+  MicrophoneIcon,
+  ChevronDoubleLeftIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronDoubleRightIcon,
+  WrenchScrewdriverIcon,
+  CodeBracketIcon,
+  TableCellsIcon,
+  ServerIcon,
+  TrashIcon
+} from '@heroicons/vue/24/outline'
 
 // Estados reactivos
 const showFilters = ref(false)
@@ -649,7 +691,7 @@ onMounted(() => {
 }
 
 .stat-icon {
-  @apply text-2xl;
+  @apply flex-shrink-0 text-blue-600;
 }
 
 .stat-info {
@@ -697,11 +739,11 @@ onMounted(() => {
 }
 
 .loading-spinner {
-  @apply text-4xl mb-4;
+  @apply mb-4;
 }
 
 .empty-icon {
-  @apply text-6xl mb-4;
+  @apply mb-4;
 }
 
 .empty-state h3 {
@@ -777,7 +819,7 @@ onMounted(() => {
 }
 
 .bulk-icon {
-  @apply text-xl;
+  @apply flex-shrink-0 text-gray-600;
 }
 
 .bulk-buttons {

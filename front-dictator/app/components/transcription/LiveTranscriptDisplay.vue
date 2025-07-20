@@ -3,14 +3,18 @@
     <!-- Estado de Escucha Activa -->
     <div v-if="isTranscribing" class="listening-section">
       <div class="listening-header">
-        <h3>🎧 Escuchando...</h3>
+        <h3>
+          <SpeakerWaveIcon class="w-6 h-6 inline mr-2" />
+          Escuchando...
+        </h3>
         <div class="listening-controls">
           <div class="live-indicator">
             <span class="pulse-dot"></span>
             <span class="live-text">EN VIVO</span>
           </div>
           <div v-if="sessionDuration > 0" class="session-time">
-            ⏱️ {{ formatDuration(sessionDuration) }}
+            <ClockIcon class="w-4 h-4 inline mr-1" />
+            {{ formatDuration(sessionDuration) }}
           </div>
         </div>
       </div>
@@ -29,12 +33,21 @@
     <!-- Transcripción Actual Completa -->
     <div v-if="currentText || (!isTranscribing && !showEmpty)" class="current-section">
       <div class="section-header">
-        <h3>📝 Transcripción</h3>
+        <h3>
+          <DocumentTextIcon class="w-6 h-6 inline mr-2" />
+          Transcripción
+        </h3>
         <div class="text-stats">
           <span class="word-count">{{ wordCount }} palabras</span>
           <span class="char-count">{{ charCount }} caracteres</span>
-          <span v-if="!isTranscribing" class="status-badge final">✅ Finalizada</span>
-          <span v-else class="status-badge active">🔄 En proceso</span>
+          <span v-if="!isTranscribing" class="status-badge final">
+            <CheckCircleIcon class="w-4 h-4 inline mr-1" />
+            Finalizada
+          </span>
+          <span v-else class="status-badge active">
+            <ArrowPathIcon class="w-4 h-4 inline mr-1 animate-spin" />
+            En proceso
+          </span>
         </div>
       </div>
       
@@ -53,7 +66,7 @@
 
       <div v-if="showActions" class="current-actions">
         <div v-if="!isTranscribing && currentText" class="save-reminder">
-          <span class="reminder-icon">💡</span>
+          <LightBulbIcon class="reminder-icon w-5 h-5" />
           <span class="reminder-text">
             ¡No olvides guardar tu transcripción si quieres conservarla!
           </span>
@@ -65,8 +78,10 @@
           class="action-btn save-btn"
           :title="isTranscribing ? 'Finaliza la transcripción para guardar' : 'Guardar transcripción en el historial'"
         >
-          <span v-if="isLoading">💾 Guardando...</span>
-          <span v-else>💾 Guardar en Historial</span>
+          <ArrowPathIcon v-if="isLoading" class="w-4 h-4 mr-1 animate-spin" />
+          <ServerIcon v-else class="w-4 h-4 mr-1" />
+          <span v-if="isLoading">Guardando...</span>
+          <span v-else>Guardar en Historial</span>
         </button>
         
         <div class="action-buttons">
@@ -76,7 +91,8 @@
             class="action-btn download-btn"
             title="Descargar como archivo de texto"
           >
-            📁 Descargar
+            <FolderArrowDownIcon class="w-4 h-4 mr-1" />
+            Descargar
           </button>
 
           <button 
@@ -85,7 +101,8 @@
             class="action-btn copy-btn"
             title="Copiar al portapapeles"
           >
-            📋 Copiar
+            <ClipboardDocumentIcon class="w-4 h-4 mr-1" />
+            Copiar
           </button>
 
           <button 
@@ -94,7 +111,8 @@
             class="action-btn clear-btn"
             title="Limpiar texto actual"
           >
-            🗑️ Limpiar
+            <TrashIcon class="w-4 h-4 mr-1" />
+            Limpiar
           </button>
         </div>
       </div>
@@ -103,13 +121,22 @@
     <!-- Estado vacío inicial -->
     <div v-if="showEmpty && !currentText && !isTranscribing" class="empty-section">
       <div class="empty-content">
-        <span class="empty-icon">🎤</span>
+        <MicrophoneIcon class="empty-icon w-16 h-16 text-gray-400" />
         <h3>Listo para transcribir</h3>
         <p>Presiona el botón de grabación para comenzar la transcripción en tiempo real</p>
         <div class="empty-features">
-          <span class="feature-tag">⚡ Tiempo real</span>
-          <span class="feature-tag">🎯 Alta precisión</span>
-          <span class="feature-tag">💾 Guardado automático</span>
+          <span class="feature-tag">
+            <BoltIcon class="w-4 h-4 mr-1" />
+            Tiempo real
+          </span>
+          <span class="feature-tag">
+            <FireIcon class="w-4 h-4 mr-1" />
+            Alta precisión
+          </span>
+          <span class="feature-tag">
+            <ServerIcon class="w-4 h-4 mr-1" />
+            Guardado automático
+          </span>
         </div>
       </div>
     </div>
@@ -118,6 +145,21 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { 
+  SpeakerWaveIcon,
+  ClockIcon,
+  DocumentTextIcon,
+  CheckCircleIcon,
+  ArrowPathIcon,
+  LightBulbIcon,
+  ServerIcon,
+  FolderArrowDownIcon,
+  ClipboardDocumentIcon,
+  TrashIcon,
+  MicrophoneIcon,
+  BoltIcon,
+  FireIcon
+} from '@heroicons/vue/24/outline'
 
 interface Props {
   isTranscribing: boolean
@@ -363,7 +405,7 @@ const handleClear = () => {
 }
 
 .empty-content {
-  @apply text-center;
+  @apply text-center flex flex-col items-center;
 }
 
 .empty-icon {
@@ -383,7 +425,7 @@ const handleClear = () => {
 }
 
 .feature-tag {
-  @apply bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-medium;
+  @apply bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-medium flex;
 }
 
 /* Responsive */

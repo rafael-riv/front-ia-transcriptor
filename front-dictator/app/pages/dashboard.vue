@@ -7,25 +7,29 @@
       <!-- Real-time Transcription Preview -->
       <section class="realtime-preview">
         <div class="section-card">
-          <h2>🎙️ Transcripción en Tiempo Real</h2>
+          <h2>
+            <MicrophoneIcon class="w-8 h-8 inline mr-2" />
+            Transcripción en Tiempo Real
+          </h2>
           <p class="section-description">
             Habla al micrófono y obtén la transcripción instantánea usando IA
           </p>
 
           <div class="preview-features">
             <div class="feature-item">
-              <span class="feature-icon">⚡</span>
+              <BoltIcon class="feature-icon w-6 h-6" />
               <span>Transcripción instantánea</span>
             </div>
             <div class="feature-item">
-              <span class="feature-icon">💾</span>
+              <ServerIcon class="feature-icon w-6 h-6" />
               <span>Guardado automático</span>
             </div>
           </div>
 
           <div class="preview-actions">
             <NuxtLink to="/realtime" class="realtime-link">
-              🎙️ Transcribir en Tiempo Real
+              <MicrophoneIcon class="w-5 h-5 mr-2" />
+              Transcribir en Tiempo Real
             </NuxtLink>
           </div>
         </div>
@@ -33,25 +37,29 @@
       <!--Upload file Preview -->
       <section class="upload-preview">
         <div class="section-card">
-          <h2>📁 Subir Archivo de Audio</h2>
+          <h2>
+            <FolderIcon class="w-8 h-8 inline mr-2" />
+            Subir Archivo de Audio
+          </h2>
           <p class="section-description">
             Sube tu archivo de audio y obtendrás la transcripción automática usando IA
           </p>
 
           <div class="preview-features">
             <div class="feature-item">
-              <span class="feature-icon">📎</span>
+              <PaperClipIcon class="feature-icon w-6 h-6" />
               <span>Subida de archivos</span>
             </div>
             <div class="feature-item">
-              <span class="feature-icon">🎵</span>
+              <MusicalNoteIcon class="feature-icon w-6 h-6" />
               <span>Múltiples formatos</span>
             </div>
           </div>
 
           <div class="preview-actions">
             <NuxtLink to="/transcription" class="upload-link">
-              📁 Subir Archivo de Audio
+              <FolderIcon class="w-5 h-5 mr-2" />
+              Subir Archivo de Audio
             </NuxtLink>
           </div>
         </div>
@@ -59,25 +67,29 @@
       <!--History file Preview -->
       <section class="history-preview">
         <div class="section-card">
-          <h2>📋 Historial de Transcripciones</h2>
+          <h2>
+            <ClipboardDocumentListIcon class="w-8 h-8 inline mr-2" />
+            Historial de Transcripciones
+          </h2>
           <p class="section-description">
             Accede a todas tus transcripciones anteriores, revisa fechas y gestiona tu contenido
           </p>
 
           <div class="preview-features">
             <div class="feature-item">
-              <span class="feature-icon">📋</span>
+              <ClipboardDocumentListIcon class="feature-icon w-6 h-6" />
               <span>Ver todas las transcripciones</span>
             </div>
             <div class="feature-item">
-              <span class="feature-icon">💾</span>
+              <FolderArrowDownIcon class="feature-icon w-6 h-6" />
               <span>Descargar como .txt</span>
             </div>
           </div>
 
           <div class="preview-actions">
             <NuxtLink to="/history" class="history-link">
-              📋 Ver Historial Completo
+              <ClipboardDocumentListIcon class="w-5 h-5 mr-2" />
+              Ver Historial Completo
             </NuxtLink>
           </div>
         </div>
@@ -91,6 +103,18 @@
   </div>
 </template>
 
+<script setup lang="ts">
+import { 
+  MicrophoneIcon,
+  BoltIcon,
+  ServerIcon,
+  FolderIcon,
+  PaperClipIcon,
+  MusicalNoteIcon,
+  ClipboardDocumentListIcon,
+  FolderArrowDownIcon
+} from '@heroicons/vue/24/outline'
+</script>
 
 <style scoped>
 .dashboard {
@@ -452,7 +476,7 @@
 }
 
 .feature-icon {
-  font-size: 1.5rem;
+  flex-shrink: 0;
 }
 
 .preview-actions {

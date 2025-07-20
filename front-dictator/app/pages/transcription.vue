@@ -131,11 +131,11 @@ const handleSaveTranscription = async (transcription: TranscriptionData) => {
   if (success) {
     showSuccessModal.value = true
     successModalData.value = {
-      title: '🎉 ¡Transcripción Guardada!',
+      title: '¡Transcripción Guardada!',
       message: 'Tu transcripción ha sido guardada exitosamente en el historial permanente.',
       actions: [
-        { label: '📚 Ver en Historial', action: 'view-history', primary: true },
-        { label: '✅ Continuar', action: 'continue' }
+        { label: 'Ver en Historial', action: 'view-history', primary: true },
+        { label: 'Continuar', action: 'continue' }
       ]
     }
   }

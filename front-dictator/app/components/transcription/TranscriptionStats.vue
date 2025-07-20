@@ -2,7 +2,7 @@
   <div class="transcription-stats">
     <div class="stats-grid">
       <div class="stat-item words-stat">
-        <span class="stat-icon">📝</span>
+        <DocumentTextIcon class="stat-icon w-6 h-6" />
         <div class="stat-content">
           <span class="stat-number">{{ wordCount }}</span>
           <span class="stat-label">Palabras</span>
@@ -10,7 +10,7 @@
       </div>
       
       <div class="stat-item chars-stat">
-        <span class="stat-icon">🔤</span>
+        <LanguageIcon class="stat-icon w-6 h-6" />
         <div class="stat-content">
           <span class="stat-number">{{ characterCount }}</span>
           <span class="stat-label">Caracteres</span>
@@ -18,7 +18,7 @@
       </div>
       
       <div class="stat-item time-stat">
-        <span class="stat-icon">⏱️</span>
+        <ClockIcon class="stat-icon w-6 h-6" />
         <div class="stat-content">
           <span class="stat-number">{{ readingTime }}</span>
           <span class="stat-label">Lectura</span>
@@ -26,7 +26,7 @@
       </div>
       
       <div v-if="fileInfo?.size" class="stat-item size-stat">
-        <span class="stat-icon">💾</span>
+        <CircleStackIcon class="stat-icon w-6 h-6" />
         <div class="stat-content">
           <span class="stat-number">{{ formattedFileSize }}</span>
           <span class="stat-label">Archivo</span>
@@ -36,17 +36,26 @@
     
     <div v-if="fileInfo?.filename" class="file-metadata">
       <div class="metadata-item">
-        <span class="metadata-label">📄 Archivo:</span>
+        <span class="metadata-label">
+          <DocumentIcon class="w-4 h-4 inline mr-1" />
+          Archivo:
+        </span>
         <span class="metadata-value">{{ fileInfo.filename }}</span>
       </div>
       
       <div v-if="fileInfo.type" class="metadata-item">
-        <span class="metadata-label">🎵 Tipo:</span>
+        <span class="metadata-label">
+          <MusicalNoteIcon class="w-4 h-4 inline mr-1" />
+          Tipo:
+        </span>
         <span class="metadata-value">{{ fileInfo.type }}</span>
       </div>
       
       <div v-if="fileInfo.uploadedAt" class="metadata-item">
-        <span class="metadata-label">📅 Procesado:</span>
+        <span class="metadata-label">
+          <CalendarIcon class="w-4 h-4 inline mr-1" />
+          Procesado:
+        </span>
         <span class="metadata-value">{{ formattedDate }}</span>
       </div>
     </div>
@@ -55,6 +64,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { 
+  DocumentTextIcon,
+  LanguageIcon,
+  ClockIcon,
+  CircleStackIcon,
+  DocumentIcon,
+  MusicalNoteIcon,
+  CalendarIcon
+} from '@heroicons/vue/24/outline'
 
 interface FileInfo {
   filename?: string
@@ -133,7 +151,7 @@ const formattedDate = computed(() => {
 }
 
 .stat-icon {
-  @apply text-xl;
+  @apply flex-shrink-0;
 }
 
 .stat-content {

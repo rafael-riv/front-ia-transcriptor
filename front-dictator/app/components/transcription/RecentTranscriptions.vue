@@ -1,7 +1,10 @@
 <template>
   <div class="recent-transcriptions">
     <div class="section-header">
-      <h2 class="section-title">📋 Transcripciones Recientes</h2>
+      <h2 class="section-title">
+        <ClipboardDocumentListIcon class="w-6 h-6 inline mr-2" />
+        Transcripciones Recientes
+      </h2>
       <div class="header-actions">
         <button 
           @click="refreshList"
@@ -9,24 +12,25 @@
           class="refresh-btn"
           title="Actualizar lista"
         >
-          <span v-if="isLoading">⏳</span>
-          <span v-else>🔄</span>
+          <ArrowPathIcon v-if="isLoading" class="w-4 h-4 animate-spin mr-1" />
+          <ArrowPathIcon v-else class="w-4 h-4 mr-1" />
           Actualizar
         </button>
         
         <NuxtLink to="/history" class="history-link">
-          📚 Ver Todo el Historial
+          <BookOpenIcon class="w-4 h-4 mr-1" />
+          Ver Todo el Historial
         </NuxtLink>
       </div>
     </div>
 
     <div v-if="isLoading" class="loading-state">
-      <div class="loading-spinner">⏳</div>
+      <ArrowPathIcon class="loading-spinner w-12 h-12 animate-spin" />
       <p>Cargando transcripciones recientes...</p>
     </div>
 
     <div v-else-if="transcriptions.length === 0" class="empty-state">
-      <div class="empty-icon">📭</div>
+      <InboxIcon class="empty-icon w-16 h-16 text-gray-400" />
       <h3>No hay transcripciones recientes</h3>
       <p class="empty-subtitle">
         Las transcripciones que proceses aparecerán aquí
@@ -51,8 +55,14 @@
         </div>
         
         <div class="item-stats">
-          <span class="stat">📝 {{ getWordCount(transcription.text) }} palabras</span>
-          <span class="stat">🔤 {{ transcription.text?.length || 0 }} caracteres</span>
+          <span class="stat">
+            <DocumentTextIcon class="w-4 h-4 inline mr-1" />
+            {{ getWordCount(transcription.text) }} palabras
+          </span>
+          <span class="stat">
+            <LanguageIcon class="w-4 h-4 inline mr-1" />
+            {{ transcription.text?.length || 0 }} caracteres
+          </span>
         </div>
         
         <div class="item-actions">
@@ -61,21 +71,24 @@
             class="action-btn copy-btn"
             title="Copiar"
           >
-            📋 Copiar
+            <ClipboardDocumentIcon class="w-4 h-4 mr-1" />
+            Copiar
           </button>
           <button 
             @click="downloadTranscription(transcription)"
             class="action-btn download-btn"
             title="Descargar"
           >
-            📁 Descargar
+            <FolderArrowDownIcon class="w-4 h-4 mr-1" />
+            Descargar
           </button>
           <button 
             @click="viewInHistory(transcription._id)"
             class="action-btn view-btn"
             title="Ver en historial"
           >
-            👁️ Ver Detalles
+            <EyeIcon class="w-4 h-4 mr-1" />
+            Ver Detalles
           </button>
         </div>
       </div>
@@ -91,6 +104,17 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { 
+  ClipboardDocumentListIcon,
+  ArrowPathIcon,
+  BookOpenIcon,
+  InboxIcon,
+  DocumentTextIcon,
+  LanguageIcon,
+  ClipboardDocumentIcon,
+  FolderArrowDownIcon,
+  EyeIcon
+} from '@heroicons/vue/24/outline'
 
 interface Transcription {
   _id: string
@@ -236,11 +260,11 @@ const formatDate = (dateString: string): string => {
 }
 
 .loading-spinner {
-  @apply text-4xl mb-4 animate-spin;
+  @apply mb-4 text-blue-500;
 }
 
 .empty-icon {
-  @apply text-6xl mb-4;
+  @apply mb-4;
 }
 
 .empty-state h3 {

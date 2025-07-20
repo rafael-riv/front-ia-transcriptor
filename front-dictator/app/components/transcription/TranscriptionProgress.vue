@@ -16,7 +16,8 @@
     <div class="progress-info">
       <span class="progress-message">{{ message }}</span>
       <span class="progress-eta" v-if="estimatedTime">
-        ⏱️ {{ estimatedTime }}
+        <ClockIcon class="w-4 h-4 inline mr-1" />
+        {{ estimatedTime }}
       </span>
     </div>
   </div>
@@ -24,6 +25,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ClockIcon } from '@heroicons/vue/24/outline'
 
 interface Props {
   progress: number

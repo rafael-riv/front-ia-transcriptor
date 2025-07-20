@@ -6,8 +6,14 @@
         <div class="title-section">
           <h4 class="item-title">
             {{ displayName }}
-            <span v-if="!item._id" class="status-badge temp-badge">📝 Temporal</span>
-            <span v-else class="status-badge saved-badge">💾 Guardado</span>
+            <span v-if="!item._id" class="status-badge temp-badge">
+              <PencilIcon class="w-3 h-3 inline mr-1" />
+              Temporal
+            </span>
+            <span v-else class="status-badge saved-badge">
+              <ServerIcon class="w-3 h-3 inline mr-1" />
+              Guardado
+            </span>
           </h4>
           <span class="item-date">{{ formattedDate }}</span>
         </div>
@@ -22,8 +28,8 @@
             title="Guardar en servidor"
             :disabled="isLoading"
           >
-            <span v-if="isLoading">⏳</span>
-            <span v-else>💾</span>
+            <ArrowPathIcon v-if="isLoading" class="w-4 h-4 animate-spin" />
+            <ServerIcon v-else class="w-4 h-4" />
           </button>
           
           <button 
@@ -32,7 +38,7 @@
             title="Copiar al portapapeles"
             :disabled="!item.text"
           >
-            📋
+            <ClipboardDocumentIcon class="w-4 h-4" />
           </button>
           
           <button 
@@ -40,7 +46,8 @@
             class="quick-btn expand-quick-btn"
             :title="isExpanded ? 'Contraer' : 'Expandir'"
           >
-            {{ isExpanded ? '⬆️' : '⬇️' }}
+            <ChevronUpIcon v-if="isExpanded" class="w-4 h-4" />
+            <ChevronDownIcon v-else class="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -50,7 +57,7 @@
     <div class="stats-section">
       <div class="stats-grid">
         <div class="stat-card words-stat">
-          <span class="stat-icon">📝</span>
+          <DocumentTextIcon class="stat-icon w-6 h-6" />
           <div class="stat-content">
             <span class="stat-number">{{ wordCount }}</span>
             <span class="stat-label">Palabras</span>
@@ -58,7 +65,7 @@
         </div>
         
         <div class="stat-card chars-stat">
-          <span class="stat-icon">🔤</span>
+          <LanguageIcon class="stat-icon w-6 h-6" />
           <div class="stat-content">
             <span class="stat-number">{{ characterCount }}</span>
             <span class="stat-label">Caracteres</span>
@@ -66,7 +73,7 @@
         </div>
         
         <div class="stat-card duration-stat">
-          <span class="stat-icon">⏱️</span>
+          <ClockIcon class="stat-icon w-6 h-6" />
           <div class="stat-content">
             <span class="stat-number">{{ durationText }}</span>
             <span class="stat-label">Duración</span>
@@ -74,7 +81,7 @@
         </div>
         
         <div class="stat-card size-stat">
-          <span class="stat-icon">📊</span>
+          <ChartBarIcon class="stat-icon w-6 h-6" />
           <div class="stat-content">
             <span class="stat-number">{{ readingTime }}</span>
             <span class="stat-label">Lectura</span>
@@ -87,10 +94,12 @@
     <div class="meta-section">
       <div class="meta-badges">
         <span v-if="item._id" class="meta-badge server-badge">
-          🌐 En servidor
+          <GlobeAltIcon class="w-3 h-3 inline mr-1" />
+          En servidor
         </span>
         <span v-else class="meta-badge local-badge">
-          💻 Solo local
+          <ComputerDesktopIcon class="w-3 h-3 inline mr-1" />
+          Solo local
         </span>
         
         <span class="meta-badge type-badge">
@@ -98,7 +107,8 @@
         </span>
         
         <span v-if="isSavedRecently" class="meta-badge recent-badge">
-          ✨ Reciente
+          <SparklesIcon class="w-3 h-3 inline mr-1" />
+          Reciente
         </span>
       </div>
     </div>
@@ -130,7 +140,7 @@
       </div>
       
       <div v-else class="no-content">
-        <span class="no-content-icon">⚠️</span>
+        <ExclamationTriangleIcon class="no-content-icon w-5 h-5 text-yellow-500" />
         <span class="no-content-text">Transcripción no disponible</span>
       </div>
     </div>
@@ -140,14 +150,18 @@
       <div class="action-groups">
         <!-- Grupo de Archivo -->
         <div class="action-group file-group">
-          <span class="group-label">📁 Archivo:</span>
+          <span class="group-label">
+            <FolderIcon class="w-4 h-4 inline mr-1" />
+            Archivo:
+          </span>
           <div class="group-buttons">
             <button 
               @click="handleDownload"
               class="action-btn download-btn"
               title="Descargar como archivo de texto"
             >
-              📁 Descargar TXT
+              <FolderArrowDownIcon class="w-4 h-4 mr-1" />
+              Descargar TXT
             </button>
             
             <button 
@@ -155,14 +169,18 @@
               class="action-btn download-json-btn"
               title="Descargar con metadatos"
             >
-              📋 Descargar JSON
+              <CodeBracketIcon class="w-4 h-4 mr-1" />
+              Descargar JSON
             </button>
           </div>
         </div>
         
         <!-- Grupo de Compartir -->
         <div class="action-group share-group">
-          <span class="group-label">📤 Compartir:</span>
+          <span class="group-label">
+            <ShareIcon class="w-4 h-4 inline mr-1" />
+            Compartir:
+          </span>
           <div class="group-buttons">
             <button 
               @click="handleCopy"
@@ -170,7 +188,8 @@
               :disabled="!item.text"
               title="Copiar texto al portapapeles"
             >
-              📋 Copiar
+              <ClipboardDocumentIcon class="w-4 h-4 mr-1" />
+              Copiar
             </button>
             
             <button 
@@ -179,14 +198,18 @@
               title="Generar enlace para compartir"
               :disabled="!item._id"
             >
-              🔗 Enlace
+              <LinkIcon class="w-4 h-4 mr-1" />
+              Enlace
             </button>
           </div>
         </div>
         
         <!-- Grupo de Gestión -->
         <div class="action-group manage-group">
-          <span class="group-label">🛠️ Gestión:</span>
+          <span class="group-label">
+            <WrenchScrewdriverIcon class="w-4 h-4 inline mr-1" />
+            Gestión:
+          </span>
           <div class="group-buttons">
             <button 
               v-if="!item._id"
@@ -195,8 +218,10 @@
               title="Guardar en servidor permanentemente"
               :disabled="isLoading"
             >
-              <span v-if="isLoading">⏳ Guardando...</span>
-              <span v-else>💾 Guardar</span>
+              <ArrowPathIcon v-if="isLoading" class="w-4 h-4 mr-1 animate-spin" />
+              <ServerIcon v-else class="w-4 h-4 mr-1" />
+              <span v-if="isLoading">Guardando...</span>
+              <span v-else>Guardar</span>
             </button>
             
             <button 
@@ -206,7 +231,8 @@
               title="Actualizar transcripción"
               :disabled="isLoading"
             >
-              🔄 Actualizar
+              <ArrowPathIcon class="w-4 h-4 mr-1" />
+              Actualizar
             </button>
             
             <button 
@@ -214,7 +240,8 @@
               class="action-btn duplicate-btn"
               title="Crear una copia"
             >
-              📄 Duplicar
+              <DocumentDuplicateIcon class="w-4 h-4 mr-1" />
+              Duplicar
             </button>
             
             <button 
@@ -222,7 +249,8 @@
               class="action-btn delete-btn"
               :title="item._id ? 'Eliminar del servidor' : 'Eliminar localmente'"
             >
-              🗑️ Eliminar
+              <TrashIcon class="w-4 h-4 mr-1" />
+              Eliminar
             </button>
           </div>
         </div>
@@ -232,7 +260,7 @@
     <!-- Indicador de carga -->
     <div v-if="isLoading" class="loading-overlay">
       <div class="loading-content">
-        <div class="loading-spinner">⏳</div>
+        <ArrowPathIcon class="loading-spinner w-8 h-8 animate-spin text-blue-500" />
         <span class="loading-text">Procesando...</span>
       </div>
     </div>
@@ -242,6 +270,30 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { TranscriptionItem } from '~/composables/useTranscriptionHistory'
+import { 
+  PencilIcon,
+  ServerIcon,
+  ArrowPathIcon,
+  ClipboardDocumentIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  DocumentTextIcon,
+  LanguageIcon,
+  ClockIcon,
+  ChartBarIcon,
+  GlobeAltIcon,
+  ComputerDesktopIcon,
+  SparklesIcon,
+  ExclamationTriangleIcon,
+  FolderIcon,
+  FolderArrowDownIcon,
+  CodeBracketIcon,
+  ShareIcon,
+  LinkIcon,
+  WrenchScrewdriverIcon,
+  DocumentDuplicateIcon,
+  TrashIcon
+} from '@heroicons/vue/24/outline'
 
 interface Props {
   item: TranscriptionItem

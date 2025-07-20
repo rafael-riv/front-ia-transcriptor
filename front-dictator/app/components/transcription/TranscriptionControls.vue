@@ -29,7 +29,10 @@
       </p>
       
       <div v-if="showDuration && sessionDuration > 0" class="duration-info">
-        <span>⏱️ Duración: {{ formatDuration(sessionDuration) }}</span>
+        <span>
+          <ClockIcon class="w-4 h-4 inline mr-1" />
+          Duración: {{ formatDuration(sessionDuration) }}
+        </span>
       </div>
     </div>
   </div>
@@ -37,6 +40,7 @@
 
 <script setup lang="ts">
 import { PlayCircleIcon, PauseCircleIcon } from '@heroicons/vue/24/solid'
+import { ClockIcon } from '@heroicons/vue/24/outline'
 
 interface Props {
   isTranscribing: boolean

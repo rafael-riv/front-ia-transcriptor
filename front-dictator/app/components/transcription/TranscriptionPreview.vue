@@ -4,8 +4,12 @@
     <div class="preview-header">
       <div class="header-info">
         <h3 class="preview-title">
-          📝 Vista Previa de la Transcripción
-          <span class="status-badge success-badge">✅ Completada</span>
+          <DocumentTextIcon class="w-6 h-6 inline mr-2" />
+          Vista Previa de la Transcripción
+          <span class="status-badge success-badge">
+            <CheckCircleIcon class="w-4 h-4 inline mr-1" />
+            Completada
+          </span>
         </h3>
         <TranscriptionStats 
           :word-count="wordCount"
@@ -22,7 +26,9 @@
           :class="{ 'active': isEditMode }"
           title="Editar transcripción"
         >
-          {{ isEditMode ? '📖' : '✏️' }} {{ isEditMode ? 'Ver' : 'Editar' }}
+          <BookOpenIcon v-if="isEditMode" class="w-4 h-4 inline mr-1" />
+          <PencilIcon v-else class="w-4 h-4 inline mr-1" />
+          {{ isEditMode ? 'Ver' : 'Editar' }}
         </button>
         
         <button 
@@ -30,7 +36,8 @@
           class="action-btn secondary-btn"
           title="Procesar nuevo archivo"
         >
-          🔄 Nuevo Archivo
+          <ArrowPathIcon class="w-4 h-4 inline mr-1" />
+          Nuevo Archivo
         </button>
       </div>
     </div>
@@ -58,13 +65,18 @@
 
         <div v-else class="text-editor">
           <div class="editor-header">
-            <span class="editor-label">✏️ Editando transcripción</span>
+            <span class="editor-label">
+              <PencilIcon class="w-4 h-4 inline mr-1" />
+              Editando transcripción
+            </span>
             <div class="editor-controls">
               <button @click="revertChanges" class="control-btn" :disabled="!hasChanges">
-                ↺ Revertir
+                <ArrowUturnLeftIcon class="w-4 h-4 inline mr-1" />
+                Revertir
               </button>
               <button @click="saveChanges" class="control-btn save-btn" :disabled="!hasChanges">
-                ✅ Aplicar Cambios
+                <CheckIcon class="w-4 h-4 inline mr-1" />
+                Aplicar Cambios
               </button>
             </div>
           </div>
@@ -79,7 +91,8 @@
           
           <div class="editor-info">
             <span class="change-indicator" v-if="hasChanges">
-              ⚠️ Hay cambios sin aplicar
+              <ExclamationTriangleIcon class="w-4 h-4 inline mr-1" />
+              Hay cambios sin aplicar
             </span>
             <span class="word-counter">
               {{ editableWordCount }} palabras • {{ editableText.length }} caracteres
@@ -105,7 +118,7 @@
     <!-- Modal de Confirmación -->
     <ConfirmModal
       v-if="showDeleteModal"
-      title="🗑️ Confirmar Eliminación"
+      title="Confirmar Eliminación"
       message="¿Estás seguro de que quieres eliminar esta transcripción? Esta acción no se puede deshacer."
       confirm-text="Eliminar"
       cancel-text="Cancelar"
@@ -121,6 +134,16 @@ import { ref, computed, watch } from 'vue'
 import TranscriptionStats from '~/components/transcription/TranscriptionStats.vue'
 import TranscriptionActions from '~/components/transcription/TranscriptionActions.vue'
 import ConfirmModal from '~/components/ui/ConfirmModal.vue'
+import { 
+  DocumentTextIcon,
+  CheckCircleIcon,
+  BookOpenIcon,
+  PencilIcon,
+  ArrowPathIcon,
+  ArrowUturnLeftIcon,
+  CheckIcon,
+  ExclamationTriangleIcon
+} from '@heroicons/vue/24/outline'
 
 export interface TranscriptionData {
   text: string

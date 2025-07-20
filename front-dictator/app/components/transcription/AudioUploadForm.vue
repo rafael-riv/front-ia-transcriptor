@@ -1,7 +1,10 @@
 <template>
   <div class="upload-form-container">
     <div class="upload-header">
-      <h3 class="upload-title">📁 Subir Archivo de Audio</h3>
+      <h3 class="upload-title">
+        <FolderIcon class="w-6 h-6 inline" />
+        Subir Archivo de Audio
+      </h3>
       <p class="upload-description">
         Selecciona tu archivo de audio para transcribir. Formatos soportados: MP3, WAV, M4A, AAC, OGG
       </p>
@@ -20,7 +23,8 @@
         />
         <label for="audio-upload-input" class="file-label" :class="{ 'has-file': selectedFile }">
           <div class="file-label-content">
-            <span class="file-icon">{{ selectedFile ? '✅' : '📎' }}</span>
+            <CheckCircleIcon v-if="selectedFile" class="file-icon w-10 h-10 text-green-500" />
+            <PaperClipIcon v-else class="file-icon w-10 h-10 text-blue-500" />
             <span class="file-text">
               {{ selectedFile ? selectedFile.name : 'Arrastra tu archivo aquí o haz clic para seleccionar' }}
             </span>
@@ -32,7 +36,10 @@
       </div>
 
       <div v-if="selectedFile" class="file-info">
-        <h4 class="file-info-title">📄 Información del Archivo</h4>
+        <h4 class="file-info-title">
+          <DocumentIcon class="w-5 h-5 inline mr-2" />
+          Información del Archivo
+        </h4>
         <div class="file-details">
           <div class="detail-row">
             <span class="detail-label">Nombre:</span>
@@ -57,11 +64,11 @@
           :class="{ 'uploading': isUploading }"
         >
           <span v-if="isUploading" class="btn-content">
-            <span class="btn-spinner">⏳</span>
+            <ArrowPathIcon class="btn-spinner w-5 h-5 animate-spin" />
             <span>{{ uploadStage }}</span>
           </span>
           <span v-else class="btn-content">
-            <span class="btn-icon">🚀</span>
+            <RocketLaunchIcon class="btn-icon w-5 h-5" />
             <span>Transcribir Archivo</span>
           </span>
         </button>
@@ -72,7 +79,8 @@
           @click="clearSelection"
           class="clear-btn"
         >
-          🗑️ Limpiar
+          <TrashIcon class="w-4 h-4 mr-1" />
+          Limpiar
         </button>
       </div>
     </form>
@@ -90,6 +98,15 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import TranscriptionProgress from './TranscriptionProgress.vue'
+import { 
+  FolderIcon, 
+  DocumentIcon, 
+  PaperClipIcon, 
+  CheckCircleIcon, 
+  RocketLaunchIcon, 
+  ArrowPathIcon, 
+  TrashIcon 
+} from '@heroicons/vue/24/outline'
 
 interface Props {
   isUploading?: boolean
@@ -241,11 +258,11 @@ defineExpose({
 }
 
 .file-label-content {
-  @apply text-center space-y-3;
+  @apply text-center space-y-3 flex flex-col items-center;
 }
 
 .file-icon {
-  @apply text-4xl block;
+  @apply block;
 }
 
 .file-text {

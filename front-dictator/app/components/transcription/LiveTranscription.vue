@@ -1,27 +1,24 @@
 <template>
   <div>
     <h2>Transcripción en Tiempo Real</h2>
-    
-    <!-- Controles de grabación -->
-    <div class="controls-section">
-      <button @click="startTranscription" :disabled="isTranscribing && !isPaused" class="btn-start">
-        {{ isTranscribing && !isPaused ? 'Grabando...' : 'Comenzar Grabación' }}
+    <div class="controls-section flex">
+      <button @click="handleMainAction"
+        class=" flex items-center justify-center rounded-full text-white shadow-lg transition-all duration-300"
+        :class="buttonClass">
+        <span v-if="!isTranscribing"><PlayCircleIcon class="w-10 h-10 text-white"/></span>
+        <span v-else-if="isPaused"><PlayCircleIcon class="w-10 h-10 text-white"/></span> 
+        <span v-else class="">
+          <PauseCircleIcon  class="animate-pulse relative w-10 h-10 text-red-500"/>
+        </span> 
+        <span class="sr-only">{{ buttonLabel }}</span>
       </button>
-      
-      <button @click="pauseTranscription" :disabled="!isTranscribing || isPaused" class="btn-pause">
-        Pausar
-      </button>
-      
-      <button @click="resumeTranscription" :disabled="!isTranscribing || !isPaused" class="btn-resume">
-        Reanudar
-      </button>
-      
+
       <button @click="stopTranscription" :disabled="!isTranscribing" class="btn-stop">
         Finalizar Transcripción
       </button>
     </div>
 
-    <p><strong>Estado:</strong> 
+    <p><strong>Estado:</strong>
       <span :class="getStatusClass()">{{ status }}</span>
     </p>
 
@@ -39,7 +36,7 @@
       <div class="current-transcript">
         <p>{{ currentTranscript }}</p>
       </div>
-      
+
       <div class="current-controls">
         <button @click="saveCurrentTranscript" :disabled="!currentTranscript || isTranscribing" class="btn-save">
           Guardar Transcripción Actual
@@ -62,7 +59,7 @@
           </button>
         </div>
       </div>
-      
+
       <div v-if="transcriptionHistory.length > 0" class="history-controls">
         <button @click="clearHistory" class="btn-clear-history">
           Limpiar Historial Local
@@ -92,26 +89,15 @@
               <span class="transcription-date">{{ item.timestamp }}</span>
             </div>
             <div class="item-controls">
-              <button 
-                @click="saveTranscriptItem(item)" 
-                v-if="!item._id" 
-                class="btn-save-small"
-                title="Guardar en el servidor"
-              >
+              <button @click="saveTranscriptItem(item)" v-if="!item._id" class="btn-save-small"
+                title="Guardar en el servidor">
                 💾 Guardar
               </button>
-              <button 
-                @click="downloadTranscriptItem(item)" 
-                class="btn-download-small"
-                title="Descargar como archivo"
-              >
+              <button @click="downloadTranscriptItem(item)" class="btn-download-small" title="Descargar como archivo">
                 📁 Descargar
               </button>
-              <button 
-                @click="deleteTranscriptItem(item.id)" 
-                class="btn-delete"
-                :title="item._id ? 'Eliminar del servidor' : 'Eliminar localmente'"
-              >
+              <button @click="deleteTranscriptItem(item.id)" class="btn-delete"
+                :title="item._id ? 'Eliminar del servidor' : 'Eliminar localmente'">
                 🗑️ Eliminar
               </button>
             </div>
@@ -133,6 +119,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { io, Socket } from 'socket.io-client';
+import { MicrophoneIcon, PauseIcon,PauseCircleIcon, PlayIcon, PlayCircleIcon } from '@heroicons/vue/24/solid'
+
 
 interface TranscriptionItem {
   id: string;
@@ -182,7 +170,7 @@ onMounted(() => {
         .map((r: any) => r.alternatives?.[0].content)
         .join(' ');
       liveTranscript.value = finalText;
-      
+
       // Acumular el texto final en la transcripción actual
       if (finalText.trim()) {
         currentTranscript.value += (currentTranscript.value ? ' ' : '') + finalText.trim();
@@ -213,7 +201,7 @@ onUnmounted(() => {
 // Función para cargar el historial desde la base de datos
 const loadHistoryFromDatabase = async () => {
   loadingHistory.value = true;
-  
+
   try {
     const token = localStorage.getItem('auth-token');
     if (!token) {
@@ -231,7 +219,7 @@ const loadHistoryFromDatabase = async () => {
 
     if (response.ok) {
       const dbTranscripts = await response.json();
-      
+
       // Convertir las transcripciones de la DB al formato local
       transcriptionHistory.value = dbTranscripts
         .filter((item: any) => item.text && item.text.trim()) // Solo transcripciones con texto
@@ -271,6 +259,28 @@ const getStatusClass = () => {
   return 'status-stopped';
 };
 
+function handleMainAction() {
+  if (!isTranscribing.value) {
+    startTranscription()
+  } else if (!isPaused.value) {
+    pauseTranscription()
+  } else {
+    resumeTranscription()
+  }
+}
+
+const buttonLabel = computed(() => {
+  if (!isTranscribing.value) return 'Comenzar Grabación'
+  if (isPaused.value) return 'Reanudar Grabación'
+  return 'Pausar Grabación'
+})
+
+const buttonClass = computed(() => {
+  if (!isTranscribing.value) return 'bg-green-500 hover:bg-green-600'
+  if (isPaused.value) return 'bg-blue-500 hover:bg-blue-600'
+  return 'bg-neutral-200 hover:bg-neutral-300 border border-red-600'
+})
+
 const startTranscription = async () => {
   if (isTranscribing.value && !isPaused.value) return;
 
@@ -291,7 +301,7 @@ const startSendingAudio = async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-    
+
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0 && !isPaused.value) {
         socket?.emit('send_audio', event.data);
@@ -309,7 +319,7 @@ const startSendingAudio = async () => {
 
 const pauseTranscription = () => {
   if (!isTranscribing.value || isPaused.value) return;
-  
+
   isPaused.value = true;
   status.value = 'Pausado';
   socket?.emit('pause_recognition');
@@ -317,7 +327,7 @@ const pauseTranscription = () => {
 
 const resumeTranscription = () => {
   if (!isTranscribing.value || !isPaused.value) return;
-  
+
   isPaused.value = false;
   status.value = '¡Habla ahora!';
   socket?.emit('resume_recognition');
@@ -329,14 +339,14 @@ const stopTranscription = () => {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
     mediaRecorder.stop();
   }
-  
+
   socket?.emit('stop_recognition');
   mediaRecorder?.stream.getTracks().forEach(track => track.stop());
 
   // Crear nueva entrada en el historial LOCAL si hay texto
   if (currentTranscript.value.trim()) {
     const endTime = new Date();
-    const duration = currentSessionStartTime 
+    const duration = currentSessionStartTime
       ? `${Math.round((endTime.getTime() - currentSessionStartTime.getTime()) / 1000)}s`
       : 'N/A';
 
@@ -431,7 +441,7 @@ const downloadCurrentTranscript = () => {
     alert('No hay texto para descargar');
     return;
   }
-  
+
   downloadText(currentTranscript.value, 'transcripcion_actual');
 };
 
@@ -470,7 +480,7 @@ const downloadText = (text: string, filename: string) => {
 const deleteTranscriptItem = async (id: string) => {
   if (confirm('¿Estás seguro de que quieres eliminar esta transcripción?')) {
     const item = transcriptionHistory.value.find(item => item.id === id);
-    
+
     if (item && item._id) {
       // Si tiene _id, está en la base de datos - aquí podrías implementar la eliminación del servidor
       alert('Funcionalidad de eliminación del servidor no implementada aún');
@@ -499,10 +509,9 @@ const clearHistory = async () => {
   border-radius: 8px;
 }
 
-button { 
-  margin: 5px; 
+button {
+  margin: 5px;
   padding: 8px 12px;
-  border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
@@ -516,41 +525,96 @@ button:disabled {
 
 button:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* Botones específicos */
-.btn-start { background-color: #4CAF50; color: white; }
-.btn-pause { background-color: #ff9800; color: white; }
-.btn-resume { background-color: #2196F3; color: white; }
-.btn-stop { background-color: #f44336; color: white; }
-.btn-save, .btn-save-small { background-color: #9C27B0; color: white; }
-.btn-download, .btn-download-small { background-color: #607D8B; color: white; }
-.btn-download-all { background-color: #795548; color: white; }
-.btn-clear-history { background-color: #FF5722; color: white; }
-.btn-delete { background-color: #f44336; color: white; padding: 4px 8px; font-size: 12px; }
-.btn-refresh { background-color: #007bff; color: white; padding: 4px 8px; font-size: 12px; }
+
+.btn-stop {
+  background-color: #f44336;
+  color: white;
+}
+
+.btn-save,
+.btn-save-small {
+  background-color: #9C27B0;
+  color: white;
+}
+
+.btn-download,
+.btn-download-small {
+  background-color: #607D8B;
+  color: white;
+}
+
+.btn-download-all {
+  background-color: #795548;
+  color: white;
+}
+
+.btn-clear-history {
+  background-color: #FF5722;
+  color: white;
+}
+
+.btn-delete {
+  background-color: #f44336;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.btn-refresh {
+  background-color: #007bff;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+}
 
 /* Estados */
-.status-recording { color: #4CAF50; font-weight: bold; }
-.status-paused { color: #ff9800; font-weight: bold; }
-.status-error { color: #f44336; font-weight: bold; }
-.status-stopped { color: #666; }
+.status-recording {
+  color: #4CAF50;
+  font-weight: bold;
+}
+
+.status-paused {
+  color: #ff9800;
+  font-weight: bold;
+}
+
+.status-error {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.status-stopped {
+  color: #666;
+}
 
 /* Secciones */
-.live-section, .current-section, .history-section {
+.live-section,
+.current-section,
+.history-section {
   margin: 20px 0;
   padding: 15px;
   border-radius: 8px;
   border: 1px solid #ddd;
 }
 
-.live-section { background-color: #e8f5e8; }
-.current-section { background-color: #f0f8ff; }
-.history-section { background-color: #fff8e1; }
+.live-section {
+  background-color: #e8f5e8;
+}
+
+.current-section {
+  background-color: #f0f8ff;
+}
+
+.history-section {
+  background-color: #fff8e1;
+}
 
 /* Transcripciones */
-.live-transcript, .current-transcript {
+.live-transcript,
+.current-transcript {
   max-height: 150px;
   overflow-y: auto;
   border: 1px solid #ccc;
@@ -618,13 +682,16 @@ button:not(:disabled):hover {
   line-height: 1.4;
 }
 
-.current-controls, .history-controls {
+.current-controls,
+.history-controls {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid #eee;
 }
 
-p { min-height: 1.2em; }
+p {
+  min-height: 1.2em;
+}
 
 h3 {
   margin-top: 20px;
@@ -652,12 +719,14 @@ h4 {
   gap: 10px;
 }
 
-.loading-indicator, .history-count {
+.loading-indicator,
+.history-count {
   font-size: 14px;
   color: #666;
 }
 
-.loading-message, .empty-history {
+.loading-message,
+.empty-history {
   text-align: center;
   padding: 20px;
   margin: 20px 0;
@@ -666,7 +735,8 @@ h4 {
   border: 1px dashed #ddd;
 }
 
-.loading-message p, .empty-history p {
+.loading-message p,
+.empty-history p {
   margin: 0;
   font-size: 16px;
   color: #666;
@@ -718,5 +788,5 @@ h4 {
 
 .history-list {
   border: 1px solid red;
-} 
-</style> 
+}
+</style>

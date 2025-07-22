@@ -5,7 +5,15 @@
       <div class="header-left">
         <div class="title-section">
           <h4 class="item-title">
-            {{ displayName }}
+            <button 
+              v-if="item._id"
+              @click="handleViewDetails"
+              class="title-link"
+              :title="`Ver detalles de ${displayName}`"
+            >
+              {{ displayName }}
+            </button>
+            <span v-else class="title-text">{{ displayName }}</span>
             <span v-if="!item._id" class="status-badge temp-badge">
               <PencilIcon class="w-3 h-3 inline mr-1" />
               Temporal
@@ -21,6 +29,15 @@
       
       <div class="header-right">
         <div class="quick-actions">
+          <button 
+            v-if="item._id"
+            @click="handleViewDetails"
+            class="quick-btn view-quick-btn"
+            title="Ver página completa"
+          >
+            <EyeIcon class="w-4 h-4" />
+          </button>
+          
           <button 
             v-if="!item._id" 
             @click="handleSave"
@@ -236,6 +253,16 @@
             </button>
             
             <button 
+              v-if="item._id"
+              @click="handleViewDetails"
+              class="action-btn view-details-btn"
+              title="Ver página completa con todos los detalles"
+            >
+              <EyeIcon class="w-4 h-4 mr-1" />
+              Ver Detalles
+            </button>
+            
+            <button 
               @click="handleDuplicate"
               class="action-btn duplicate-btn"
               title="Crear una copia"
@@ -292,7 +319,8 @@ import {
   LinkIcon,
   WrenchScrewdriverIcon,
   DocumentDuplicateIcon,
-  TrashIcon
+  TrashIcon,
+  EyeIcon
 } from '@heroicons/vue/24/outline'
 
 interface Props {
@@ -458,6 +486,12 @@ const handleDuplicate = () => {
 const handleDelete = () => {
   emit('delete', props.item.id)
 }
+
+const handleViewDetails = () => {
+  if (props.item._id) {
+    navigateTo(`/transcriptions/${props.item._id}`)
+  }
+}
 </script>
 
 <style scoped>
@@ -483,6 +517,14 @@ const handleDelete = () => {
 
 .item-title {
   @apply text-lg font-semibold text-gray-800 m-0 flex items-center gap-2 flex-wrap;
+}
+
+.title-link {
+  @apply text-lg font-semibold text-blue-600 hover:text-blue-800 underline-offset-2 hover:underline bg-transparent border-none cursor-pointer transition-colors duration-200;
+}
+
+.title-text {
+  @apply text-lg font-semibold text-gray-800;
 }
 
 .status-badge {
@@ -511,6 +553,10 @@ const handleDelete = () => {
 
 .quick-btn {
   @apply w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer text-sm;
+}
+
+.view-quick-btn {
+  @apply bg-indigo-50 border-indigo-200 hover:bg-indigo-100;
 }
 
 .save-quick-btn {
@@ -695,6 +741,10 @@ const handleDelete = () => {
 
 .update-btn {
   @apply bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100;
+}
+
+.view-details-btn {
+  @apply bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100;
 }
 
 .duplicate-btn {

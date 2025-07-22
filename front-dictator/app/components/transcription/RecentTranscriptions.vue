@@ -44,7 +44,13 @@
         class="transcription-item"
       >
         <div class="item-header">
-          <h4 class="item-title">{{ transcription.filename || 'Audio sin nombre' }}</h4>
+          <button 
+            @click="viewInHistory(transcription._id)"
+            class="item-title clickable-title"
+            :title="`Ver detalles de ${transcription.filename || 'Audio sin nombre'}`"
+          >
+            {{ transcription.filename || 'Audio sin nombre' }}
+          </button>
           <span class="item-date">{{ formatDate(transcription.createdAt) }}</span>
         </div>
         
@@ -203,7 +209,7 @@ const downloadTranscription = (transcription: Transcription) => {
 }
 
 const viewInHistory = (id: string) => {
-  navigateTo(`/history?highlight=${id}`)
+  navigateTo(`/transcriptions/${id}`)
 }
 
 // Utilidades
@@ -289,6 +295,10 @@ const formatDate = (dateString: string): string => {
 
 .item-title {
   @apply text-lg font-semibold text-gray-800 m-0;
+}
+
+.clickable-title {
+  @apply text-lg font-semibold text-blue-600 hover:text-blue-800 underline-offset-2 hover:underline bg-transparent border-none cursor-pointer transition-colors duration-200 text-left;
 }
 
 .item-date {

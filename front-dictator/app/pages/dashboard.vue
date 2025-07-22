@@ -114,6 +114,15 @@ import {
   ClipboardDocumentListIcon,
   FolderArrowDownIcon
 } from '@heroicons/vue/24/outline'
+import { ref } from 'vue'
+
+interface Notification {
+  type: 'success' | 'error' | 'info'
+  message: string
+}
+
+// Example: set to null or a default notification as needed
+const notification = ref<Notification | null>(null)
 </script>
 
 <style scoped>
@@ -135,8 +144,15 @@ import {
   background: white;
   padding: 2rem;
   border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   height: fit-content;
+  transition: all 0.3s ease;
+}
+
+.section-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #d1d5db;
 }
 
 .section-card h2 {
@@ -467,16 +483,25 @@ import {
   align-items: center;
   gap: 0.4rem;
   padding: 0.8rem;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  color: #374151;
+  border: 1px solid #e5e7eb;
   border-radius: 10px;
   font-weight: 500;
   font-size: 0.9rem;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.feature-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #cbd5e1;
 }
 
 .feature-icon {
   flex-shrink: 0;
+  color: #3b82f6;
 }
 
 .preview-actions {
@@ -491,19 +516,19 @@ import {
   align-items: center;
   gap: 0.5rem;
   padding: 1rem 2rem;
-  background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
   text-decoration: none;
-  border-radius: 15px;
+  border-radius: 12px;
   font-size: 1.1rem;
   font-weight: 600;
-  box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
   transition: all 0.3s ease;
 }
 
 .realtime-link:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(255, 107, 107, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
 }
 
 .upload-link {
@@ -511,19 +536,19 @@ import {
   align-items: center;
   gap: 0.5rem;
   padding: 1rem 2rem;
-  background: linear-gradient(135deg, #28a745, #20c997);
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
   text-decoration: none;
-  border-radius: 15px;
+  border-radius: 12px;
   font-size: 1.1rem;
   font-weight: 600;
-  box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
   transition: all 0.3s ease;
 }
 
 .upload-link:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(40, 167, 69, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
 }
 
 .history-link {
@@ -531,19 +556,19 @@ import {
   align-items: center;
   gap: 0.5rem;
   padding: 1rem 2rem;
-  background: linear-gradient(135deg, #6f42c1, #563d7c);
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
   text-decoration: none;
-  border-radius: 15px;
+  border-radius: 12px;
   font-size: 1.1rem;
   font-weight: 600;
-  box-shadow: 0 8px 25px rgba(111, 66, 193, 0.3);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
   transition: all 0.3s ease;
 }
 
 .history-link:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(111, 66, 193, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
 }
 
 .inline-preview {

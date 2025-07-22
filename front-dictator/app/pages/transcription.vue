@@ -23,7 +23,7 @@
             v-if="hasTranscription && currentTranscription"
             :transcription="currentTranscription"
             :is-loading="isLoading"
-            :can-save="canSave"
+            :can-save="canSave()"
             @save="handleSaveTranscription"
             @download="handleDownloadTxt"
             @download-json="handleDownloadJson"
@@ -81,7 +81,7 @@ definePageMeta({
 })
 
 // Estado de notificaciones
-const notification = ref<{ message: string; type: string } | null>(null)
+const notification = ref<{ message: string; type: 'info' | 'success' | 'error' | 'warning' } | null>(null)
 const showSuccessModal = ref(false)
 const successModalData = ref({
   title: '',
@@ -171,7 +171,10 @@ const clearCurrentTranscription = () => {
 }
 
 // Manejadores de modales y notificaciones
-const showNotification = (message: string, type: string = 'info') => {
+const showNotification = (
+  message: string,
+  type: 'info' | 'success' | 'error' | 'warning' = 'info'
+) => {
   notification.value = { message, type }
   setTimeout(() => {
     notification.value = null

@@ -375,9 +375,9 @@
       <CheckCircleIcon v-if="notification.type === 'success'" class="notification-icon w-5 h-5" />
       <ExclamationTriangleIcon v-else class="notification-icon w-5 h-5" />
       <span class="notification-message">{{ notification.message }}</span>
+      </div>
     </div>
-  </div>
-</template>
+  </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
@@ -818,8 +818,8 @@ onMounted(() => {
   loadTranscription()
 })
 </script>
-
-<style scoped>
+  
+  <style scoped>
 .transcription-page {
   @apply min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100;
 }
@@ -1293,6 +1293,6 @@ onMounted(() => {
 
 .related-card:hover {
   @apply transform scale-105;
-}
-</style>
+  }
+  </style>
   

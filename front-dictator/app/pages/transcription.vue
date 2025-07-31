@@ -212,7 +212,7 @@ useHead({
 })
 </script>
 
-<style lang="tailwind" scoped>
+<style scoped>
 .transcription-page {
   @apply min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100;
 }
